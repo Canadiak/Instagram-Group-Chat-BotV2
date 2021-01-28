@@ -38,6 +38,8 @@ class InstagramBot:
 		#specific classes
 		self.message_sender_css_selector = ".Igw0E.IwRSH.eGOV_._4EzTm.bkEs3.Qjx67.aGBdT > ._7UhW9.PIoXz.MMzan._0PwGv.fDxYl" #"._7UhW9.PIoXz.MMzan._0PwGv.fDxYl"
 		self.replies_css_selector = ".Igw0E.IwRSH.eGOV_._4EzTm.bkEs3.soMvl.JI_ht.DhRcB > ._7UhW9.PIoXz.MMzan._0PwGv.uL8Hv"
+		#self.reply_likes_css_selector = ".Xn4Qt"
+		self.likes_css_selector = "._7UhW9.PIoXz.MMzan.KV-D4.uL8Hv"
 		self.actions = ActionChains(self.driver)				
 		 
 		
@@ -115,6 +117,7 @@ class InstagramBot:
 		messages = self.driver.find_elements_by_css_selector(self.message_css_selector);
 		message_senders = self.driver.find_elements_by_css_selector(self.message_sender_css_selector);
 		message_sender_replies = self.driver.find_elements_by_css_selector(self.replies_css_selector);
+		likes = self.driver.find_elements_by_css_selector(self.likes_css_selector);
 		#messages.extend(message_senders)
 		
 		
@@ -132,14 +135,15 @@ class InstagramBot:
 				print("Message text bug test: ", message.text)
 				self.driver.close() 
 			
-		senders_dictionary_list = []
+		#senders_dictionary_list = []
 		for username in message_senders:
 			sender_dictionary = {
 				"element" : username,
 				"type" : "Username",
 				"text" : username.text,
 			}
-			senders_dictionary_list.append(sender_dictionary)
+			#senders_dictionary_list.append(sender_dictionary)
+			messages_dictionary_list.append(sender_dictionary)
 			
 		#Change text in reply messages to get first word, so it becomes effectively identical to regular username tag
 		for username in message_sender_replies:
@@ -148,16 +152,73 @@ class InstagramBot:
 				"type" : "Username",
 				"text" : username.text.split()[0],
 			}
-			senders_dictionary_list.append(sender_dictionary)
+			#senders_dictionary_list.append(sender_dictionary)
+			messages_dictionary_list.append(sender_dictionary)
+			
+		#Need seperate list for likes because likes are in their own order
+		like_dictionary_list = []
+		for like in likes:
+			#Different classes for text, photos, etc. 
+			index = likes.index(like)
+			#print("Like text: ", like.text)
+			like_contains_string = """contains(@class, '_7UhW9') and contains(@class, 'PIoXz') and contains(@class, 'MMzan')
+						and contains(@class, 'KV-D4') and contains(@class, 'uL8Hv')""" 
+						
+			like_xpath = "(//div[" + like_contains_string + "])[" + str(index+1) + "]"
+						
+			ancestor_of_like_contains_string = """contains(@class, 'Igw0E') and contains(@class, 'Xf6Yq') and contains(@class, 'eGOV_')
+									and contains(@class, 'ybXk5') and contains(@class, '_4EzTm')""" 
+									
+			ancestor_of_like_xpath = "div[" + ancestor_of_like_contains_string + "]"
+			
+			like_owner_xpath = like_xpath + "/ancestor::" + ancestor_of_like_xpath
+			
+			actual_username_contains_string = """contains(@class, '_7UhW9') and contains(@class, 'PIoXz') and contains(@class, 'MMzan')
+						and contains(@class, '_0PwGv') and contains(@class, 'fDxYl')"""
+						
+			generic_username_path = "//div[" + actual_username_contains_string + "]"
+			
+			username_owner_xpath = "(" + like_owner_xpath + "/preceding-sibling::div[." + generic_username_path + "])[last()]"		
+						
+			actual_username_path = username_owner_xpath + generic_username_path #[" + actual_username_contains_string + "]"
+			
+			#username_ancestor_xpath = "//div[" + actual_username_path
+														
+			
+			
+			#username_owner_xpath = "(" + like_owner_xpath + "/preceding-sibling::div)[last()]" + actual_username_path
+			
+			
+			#test_xpath = self.driver.find_element_by_xpath(actual_username_path)
+			#print("Test xpath: ", test_xpath.text)
+			username_owner = self.driver.find_element_by_xpath(actual_username_path)
+			#username_owner.location_once_scrolled_into_view()
+			#username_owner.click()
+			
+			#f = open("filetest"+str(index)+".png", "wb")
+			#f.write(username_owner.screenshot_as_png)
+			#f.close()
+			#print("Username: ", username_owner.text)
+			like_dictionary = {
+				"element" : like,
+				"type" : "Like",
+				"text" : like.text.split()[-1],
+				"owner" : username_owner.text,
+			}
+			#print("Like owner: ", username_owner.text)
+			#print("Like text: ", like.text)
+			like_dictionary_list.append(like_dictionary)
+		
+		#NOTE: no longer using all_chat_convo_elements, just using messages_dictionary_list
 		
 		#Puts the senders dictionary list into messages dictionary list so one long list can be sorted and returned
-		messages_dictionary_list.extend(senders_dictionary_list)
-		all_chat_convo_elements = messages_dictionary_list
+		#messages_dictionary_list.extend(senders_dictionary_list)
+		#all_chat_convo_elements = messages_dictionary_list
 		 #All of group chat does not load immeadiately
 		#for convo_element in all_chat_convo_elements:
 		#	print("Convo element: ", convo_element.text)
 		
-		all_chat_convo_elements.sort(key=lambda x:x["element"].location["y"])
+		messages_dictionary_list.sort(key=lambda x:x["element"].location["y"])
 		# print("All chat convo elements: ")
 		# print(all_chat_convo_elements)
 		
@@ -165,7 +226,7 @@ class InstagramBot:
 		# for messageNum in range(len(all_chat_convo_elements)):
 			# print(all_chat_convo_elements[messageNum].text)
 		
-		return all_chat_convo_elements
+		return [messages_dictionary_list, like_dictionary_list]
 		
 		
 		
@@ -265,8 +326,25 @@ def get_list_of_insta_usernames():
 	return c.fetchall()
 	
 	
+def set_appearances_and_likes_to_zero():
+	
+	list_of_usernames = get_list_of_insta_usernames()
+	for username in list_of_usernames:
+		with conn:
+			c.execute("UPDATE groupChatUsernameFrequency SET Appearances = :Appearances WHERE Username = :Username", 
+					 {'Appearances': 0, 'Username':username[0]})
+			c.execute("UPDATE groupChatUsernameFrequency SET Likes = :Likes WHERE Username = :Username", 
+					 {'Likes': 0, 'Username':username[0]})
+	
+	
 if __name__ == '__main__':
 	#Getting the password
+	
+	#Uncomment to reset database
+	set_appearances_and_likes_to_zero()
+	#quit()
+	
+	#set_appearances_and_likes_to_zero()
 	passwordFile = open("passwordFile.txt", "r")
 	password = passwordFile.read()
 	passwordFile.close()
@@ -294,9 +372,12 @@ if __name__ == '__main__':
 		# pass
 	
 	# background_to_click = bot.driver.find_element_by_css_selector('.frMpI.-sxBV')
-	
+	#List of like elements already noted into database
+	already_liked = []
 	while True:
-		convo_elements = bot.monitor_group_chat(group_to_monitor)
+		all_convo_elements = bot.monitor_group_chat(group_to_monitor)
+		convo_elements = all_convo_elements[0]
+		likes_dictionary_list = all_convo_elements[1]
 		if convo_elements[-1] != lastMessage:
 			#background_to_click.click()#scroll down
 			bot.actions.send_keys(Keys.SPACE).perform()
@@ -310,7 +391,9 @@ if __name__ == '__main__':
 				newNewMessagesFlag = False
 				
 			#Makes a string list of usernames that have spoken
+			lastUsername = ''
 			list_of_usernames_appeared = []
+			list_of_usernames_liked = []
 			for message in newMessages:
 				try:
 					print("Message Text: ", message["element"].text) #Could use message["text"], but want replies to show up differently
@@ -320,18 +403,46 @@ if __name__ == '__main__':
 				if (message["text"],) in list_of_usernames and message["type"] == "Username": #Checks if the message is an username, for recording purposes
 					#I split the message text to get the first word in case the message is a reply
 					list_of_usernames_appeared.append(message["text"])
+					lastUsername = message["text"]
+					
 				
+			#Incrementing the count of times someone had a comment with 4+ likes
+			print("likes_dictionary_list: ")
+			print(likes_dictionary_list)
+			for like in likes_dictionary_list:
+				print("Like in likes_dictionary_list check")
+				if like not in already_liked:
+					print("if like not in already_liked check")
+					list_of_usernames_liked.append(like["owner"])
+					already_liked.append(like["element"]) 
 						
+			username_and_likes_dictionary_list = []
 			for username in list_of_usernames: #Get each username from the list of usernames retrieved from database. Note: it'll be a tuple of one element
 				#print("Check two")
-				appearances = list_of_usernames_appeared.count(username[0])
+				username_and_likes_dictionary = {
+					"Likes" : list_of_usernames_liked.count(username[0]),
+					"Username" : username[0],
+					"Appearances" : list_of_usernames_appeared.count(username[0]),
+				
+				}
+				username_and_likes_dictionary_list.append(username_and_likes_dictionary)
+				#Old code, from before executemany()
+				#appearances = list_of_usernames_appeared.count(username[0])
+				#likesAppeared = list_of_usernames_liked.count(username[0])
 				#print(newMessages)
 				
-				with conn:
-					c.execute("UPDATE groupChatUsernameFrequency SET Appearances = Appearances + :Appearances WHERE Username = :Username", 
-					{'Appearances': appearances, 'Username':username[0]})
-					#print(username[0])
-					#print(appearances)
+				# with conn:
+					# c.execute("UPDATE groupChatUsernameFrequency SET Appearances = Appearances + :Appearances WHERE Username = :Username", 
+					# {'Appearances': appearances, 'Username':username[0]})
+					# #print(username[0])
+					# #print(appearances)
+			
+			username_and_likes_dictionary_tuple = tuple(username_and_likes_dictionary_list)
+			with conn:
+				c.executemany("UPDATE groupChatUsernameFrequency SET Appearances = Appearances + :Appearances WHERE Username = :Username", 
+					username_and_likes_dictionary_tuple)
+				c.executemany("UPDATE groupChatUsernameFrequency SET Likes = Likes + :Likes WHERE Username = :Username", 
+					username_and_likes_dictionary_tuple)
 					
 			lastMessage = convo_elements[-1]
 			#lastMessageText = lastMessage.text
@@ -339,7 +450,7 @@ if __name__ == '__main__':
 			#Checking if someone typed !snowmobile
 			print("newNewMessageFlag: ", newNewMessagesFlag)
 			for message in newMessages:
-				if message["text"] == "!exit" and newNewMessagesFlag:
+				if message["text"] == "!love_you_xi" and newNewMessagesFlag:
 					print("Exiting")
 					bot.driver.close()
 					quit()
@@ -349,6 +460,8 @@ if __name__ == '__main__':
 				
 			newMessages = []
 		time.sleep(3)
+		
+		#For bug testing
 		#input("Go again?")
 
 		
