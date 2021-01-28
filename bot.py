@@ -120,12 +120,17 @@ class InstagramBot:
 		
 		messages_dictionary_list = []
 		for message in messages:
-			message_dictionary = {
-				"element" : message,
-				"type" : "Message",
-				"text" : message.text,
-			}
-			messages_dictionary_list.append(message_dictionary)
+			#print("Message text bug test: ", message.text)
+			try:
+				message_dictionary = {
+					"element" : message,
+					"type" : "Message",
+					"text" : message.text,
+				}
+				messages_dictionary_list.append(message_dictionary)
+			except:
+				print("Message text bug test: ", message.text)
+				self.driver.close() 
 			
 		senders_dictionary_list = []
 		for username in message_senders:
@@ -334,7 +339,7 @@ if __name__ == '__main__':
 			#Checking if someone typed !snowmobile
 			print("newNewMessageFlag: ", newNewMessagesFlag)
 			for message in newMessages:
-				if message["text"] == "!bye" and newNewMessagesFlag:
+				if message["text"] == "!exit" and newNewMessagesFlag:
 					print("Exiting")
 					bot.driver.close()
 					quit()
