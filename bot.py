@@ -262,9 +262,9 @@ def get_list_of_insta_usernames():
 	
 if __name__ == '__main__':
 	#Getting the password
-	passwordFile = open(passwordFile.txt, r)
+	passwordFile = open("passwordFile.txt", "r")
 	password = passwordFile.read()
-	passowrdFile.close()
+	passwordFile.close()
 
 	bot = InstagramBot('testbottesting', password)
 	#insert_usernames_into_instagram_data()
@@ -280,7 +280,7 @@ if __name__ == '__main__':
 	newNewMessagesFlag = False #Flag so !quit from old convos doesn't trigger bot to quit
 	newMessages = ''
 	
-	
+	lastMessage = ''
 	# try:
 		# element = WebDriverWait(bot.driver, 10).until(
 			# EC.presence_of_element_located((By.CSS_SELECTOR, '.frMpI.-sxBV'))
@@ -334,7 +334,7 @@ if __name__ == '__main__':
 			#Checking if someone typed !snowmobile
 			print("newNewMessageFlag: ", newNewMessagesFlag)
 			for message in newMessages:
-				if message["text"] == "!snowmobile" and newNewMessagesFlag:
+				if message["text"] == "!bye" and newNewMessagesFlag:
 					print("Exiting")
 					bot.driver.close()
 					quit()
@@ -343,8 +343,8 @@ if __name__ == '__main__':
 					# lastMessageFile.close()
 				
 			newMessages = []
-		#time.sleep(3)
-		input("Go again?")
+		time.sleep(3)
+		#input("Go again?")
 
 		
 	print("All done")
