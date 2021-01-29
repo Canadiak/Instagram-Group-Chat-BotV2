@@ -158,56 +158,74 @@ class InstagramBot:
 		#Need seperate list for likes because likes are in their own order
 		like_dictionary_list = []
 		for like in likes:
-			#Different classes for text, photos, etc. 
-			index = likes.index(like)
-			#print("Like text: ", like.text)
-			like_contains_string = """contains(@class, '_7UhW9') and contains(@class, 'PIoXz') and contains(@class, 'MMzan')
-						and contains(@class, 'KV-D4') and contains(@class, 'uL8Hv')""" 
-						
-			like_xpath = "(//div[" + like_contains_string + "])[" + str(index+1) + "]"
-						
-			ancestor_of_like_contains_string = """contains(@class, 'Igw0E') and contains(@class, 'Xf6Yq') and contains(@class, 'eGOV_')
-									and contains(@class, 'ybXk5') and contains(@class, '_4EzTm')""" 
-									
-			ancestor_of_like_xpath = "div[" + ancestor_of_like_contains_string + "]"
+			print(like.text)
+			valid_num_of_likes = False
+			if like.text[-1].isdigit():
+				if int(like.text[-1]) > 3:
+					valid_num_of_likes = True
 			
-			like_owner_xpath = like_xpath + "/ancestor::" + ancestor_of_like_xpath
-			
-			actual_username_contains_string = """contains(@class, '_7UhW9') and contains(@class, 'PIoXz') and contains(@class, 'MMzan')
-						and contains(@class, '_0PwGv') and contains(@class, 'fDxYl')"""
-						
-			generic_username_path = "//div[" + actual_username_contains_string + "]"
-			
-			username_owner_xpath = "(" + like_owner_xpath + "/preceding-sibling::div[." + generic_username_path + "])[last()]"		
-						
-			actual_username_path = username_owner_xpath + generic_username_path #[" + actual_username_contains_string + "]"
-			
-			#username_ancestor_xpath = "//div[" + actual_username_path
-														
-			
-			
-			#username_owner_xpath = "(" + like_owner_xpath + "/preceding-sibling::div)[last()]" + actual_username_path
-			
-			
-			#test_xpath = self.driver.find_element_by_xpath(actual_username_path)
-			#print("Test xpath: ", test_xpath.text)
-			username_owner = self.driver.find_element_by_xpath(actual_username_path)
-			#username_owner.location_once_scrolled_into_view()
-			#username_owner.click()
-			
-			#f = open("filetest"+str(index)+".png", "wb")
-			#f.write(username_owner.screenshot_as_png)
-			#f.close()
-			#print("Username: ", username_owner.text)
-			like_dictionary = {
-				"element" : like,
-				"type" : "Like",
-				"text" : like.text.split()[-1],
-				"owner" : username_owner.text,
-			}
-			#print("Like owner: ", username_owner.text)
-			#print("Like text: ", like.text)
-			like_dictionary_list.append(like_dictionary)
+			if "+" in like.text or valid_num_of_likes:
+				#Different classes for text, photos, etc. 
+				#Index of the like, to find which like it is
+				index = likes.index(like)
+				#print("Like text: ", like.text)
+				like_contains_string = """contains(@class, '_7UhW9') and contains(@class, 'PIoXz') and contains(@class, 'MMzan')
+							and contains(@class, 'KV-D4') and contains(@class, 'uL8Hv')""" 
+				
+				#The xpath to the what contains the +1
+				like_xpath = "(//div[" + like_contains_string + "])[" + str(index+1) + "]"
+							
+				ancestor_of_like_contains_string = """contains(@class, 'Igw0E') and contains(@class, 'Xf6Yq') and contains(@class, 'eGOV_')
+										and contains(@class, 'ybXk5') and contains(@class, '_4EzTm')""" 
+				
+				
+				ancestor_of_like_xpath = "div[" + ancestor_of_like_contains_string + "]"
+				
+				#What the like is on, e.g a comment or picture
+				like_owner_xpath = like_xpath + "/ancestor::" + ancestor_of_like_xpath
+				
+				
+				
+				actual_username_contains_string = """contains(@class, '_7UhW9') and contains(@class, 'PIoXz') and contains(@class, 'MMzan')
+							and contains(@class, '_0PwGv') and contains(@class, 'fDxYl')"""
+				
+				#Xpath to an username
+				generic_username_path = "//div[" + actual_username_contains_string + "]"
+				
+				#Expath to the div that contains the username we want
+				username_owner_xpath = "(" + like_owner_xpath + "/preceding-sibling::div[." + generic_username_path + "])[last()]"		
+							
+				#Xpath to the username we want
+				actual_username_path = username_owner_xpath + generic_username_path #[" + actual_username_contains_string + "]"
+				
+				#username_ancestor_xpath = "//div[" + actual_username_path
+															
+				
+				
+				#username_owner_xpath = "(" + like_owner_xpath + "/preceding-sibling::div)[last()]" + actual_username_path
+				
+				
+				#test_xpath = self.driver.find_element_by_xpath(actual_username_path)
+				#print("Test xpath: ", test_xpath.text)
+				like_owner =  self.driver.find_element_by_xpath(like_owner_xpath)
+				username_owner = self.driver.find_element_by_xpath(actual_username_path)
+				#username_owner.location_once_scrolled_into_view()
+				#username_owner.click()
+				
+				#f = open("filetest"+str(index)+".png", "wb")
+				#f.write(username_owner.screenshot_as_png)
+				#f.close()
+				#print("Username: ", username_owner.text)
+				like_dictionary = {
+					"element" : like,
+					"type" : "Like",
+					"text" : like.text.split()[-1],
+					"owner" : username_owner.text,
+					"like_owner_text" : like_owner.text,
+				}
+				#print("Like owner: ", username_owner.text)
+				#print("Like text: ", like.text)
+				like_dictionary_list.append(like_dictionary)
 		
 		#NOTE: no longer using all_chat_convo_elements, just using messages_dictionary_list
 		
@@ -407,15 +425,22 @@ if __name__ == '__main__':
 					
 				
 			#Incrementing the count of times someone had a comment with 4+ likes
-			print("likes_dictionary_list: ")
-			print(likes_dictionary_list)
+			#print("likes_dictionary_list: ")
+			#print(likes_dictionary_list)
 			for like in likes_dictionary_list:
-				print("Like in likes_dictionary_list check")
-				if like not in already_liked:
-					print("if like not in already_liked check")
+				#print("Like in likes_dictionary_list check")
+				if like["element"] not in already_liked:
+					#print("Like element: ", like)
+					#print("Already liked: ", like)
+					#print("if like not in already_liked check")
 					list_of_usernames_liked.append(like["owner"])
 					already_liked.append(like["element"]) 
+					try:
+						print("Like owner message text: ", like["like_owner_text"])
+					except:
+						print("picture")
 						
+					
 			username_and_likes_dictionary_list = []
 			for username in list_of_usernames: #Get each username from the list of usernames retrieved from database. Note: it'll be a tuple of one element
 				#print("Check two")
@@ -448,9 +473,9 @@ if __name__ == '__main__':
 			#lastMessageText = lastMessage.text
 			
 			#Checking if someone typed !snowmobile
-			print("newNewMessageFlag: ", newNewMessagesFlag)
+			#print("newNewMessageFlag: ", newNewMessagesFlag)
 			for message in newMessages:
-				if message["text"] == "!love_you_xi" and newNewMessagesFlag:
+				if message["text"] == "!love_you_all" and newNewMessagesFlag:
 					print("Exiting")
 					bot.driver.close()
 					quit()
