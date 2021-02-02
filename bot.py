@@ -1,12 +1,25 @@
 import time
 import os
 import sqlite3
+import logging
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
+from unidecode import unidecode
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s : %(name)s : %(message)s')
+file_handler = logging.FileHandler('bot.log', mode='w')
+file_handler.setLevel(logging.INFO)
+file_handler.setFormatter(formatter)
+stream_handler = logging.StreamHandler()
+stream_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
+logger.addHandler(stream_handler)
 
 
 conn = sqlite3.connect('groupchatDatabase.db')
@@ -42,7 +55,7 @@ class InstagramBot:
         self.actions = ActionChains(self.driver)                       
         
     def login(self):
-        print("Log in start")
+        logger.info("Log in start")
         self.driver.get('{}accounts/login/'.format(self.base_url))
         try:
             element = WebDriverWait(self.driver, 10).until(
@@ -52,51 +65,51 @@ class InstagramBot:
             self.driver.find_element_by_name('username').send_keys(self.username)
             self.driver.find_element_by_name('password').send_keys(self.password)
             self.driver.find_element_by_xpath('//*[@id="loginForm"]/div/div[3]/button').click() #Log in button
-            print("Log in complete")
+            logger.info("Log in complete")
         except:
-            print("Log in failed")
+            logger.exception("Log in failed")
             self.driver.quit()        
                 
     def navigate_to_group_chat(self, group_to_monitor):
-        print("Beginning navigation to group chat directory")
+        logger.info("Beginning navigation to group chat directory")
         try:
             element = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.CLASS_NAME, 'xWeGp')) #Button to click for group chat directory
             )
         except:
-            print("Monitoring failed failed")
+            logger.exception("Monitoring failed failed")
             #self.driver.quit()
         groupchat_directory = self.driver.find_element_by_class_name('xWeGp') 
         groupchat_directory.click()
-        print("Complete navigation to group chat directory")
+        logger.info("Complete navigation to group chat directory")
         
-        print("Clicking Not Now button")
+        logger.info("Clicking Not Now button")
         try:
             element = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.CLASS_NAME, 'HoLwm')) #Not now button
             )
         except:
-            print("Clicking Not Now button failed")
+            logger.exception("Clicking Not Now button failed")
             #self.driver.quit()
         not_now = self.driver.find_element_by_class_name('HoLwm')
         not_now.click()
         
-        print("Not Now button clicked")
+        logger.info("Not Now button clicked")
         #aOOlW   HoLwm 
         
-        print("Begin navigating to group chat")
+        logger.info("Begin navigating to group chat")
         try:
             element = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.PARTIAL_LINK_TEXT, group_to_monitor))
             )
         except:
-            print("Error, unable to navigate to group chat")
+            logger.exception("Error, unable to navigate to group chat")
             #self.driver.quit()
         group_chat = self.driver.find_element_by_partial_link_text(group_to_monitor)
         group_chat.click()
           
-    def monitor_group_chat(self, group_to_monitor):
-        print("Finding messages")
+    def monitor_group_chat(self):
+        logger.info("Finding messages")
         try:
             element = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, self.message_senders_css_selector))
@@ -121,12 +134,12 @@ class InstagramBot:
                 }
                 messages_dictionary_list.append(message_dictionary)
             except:
-                print("Error, made a png log")
-                f = open("filetest.png", "wb")
-                f.write(message.screenshot_as_png)
-                f.close
-                self.driver.close() 
-                quit()          
+                # logger.exception("Error, made a png log")
+                # f = open("filetest.png", "wb")
+                # f.write(message.screenshot_as_png)
+                # f.close
+                logger.error("Something went wrong")
+                
         for username in message_senders:
             sender_dictionary = {
                 "element" : username,
@@ -170,6 +183,8 @@ class InstagramBot:
                 actual_username_contains_string = """contains(@class, '_7UhW9') and contains(@class, 'PIoXz') and contains(@class, 'MMzan')
                             and contains(@class, '_0PwGv') and contains(@class, 'fDxYl')"""
                             
+                
+                
                 #Xpath to an username
                 generic_username_path = "//div[" + actual_username_contains_string + "]"
                 
@@ -179,30 +194,70 @@ class InstagramBot:
                 #Xpath to the username we want
                 actual_username_path = username_owner_xpath + generic_username_path #[" + actual_username_contains_string + "]"              
                 #username_ancestor_xpath = "//div[" + actual_username_path
+                
+                
+                
+                #In case the username we want is in a reply
+                
+                actual_username_in_reply_contains_string = """contains(@class, '_7UhW9') and contains(@class, 'PIoXz') and contains(@class, 'MMzan')
+                            and contains(@class, '_0PwGv') and contains(@class, 'uL8Hv')"""
+                            
+                generic_username_in_reply_path = "//div[" + actual_username_in_reply_contains_string + "]"
+                
+                #Expath to the div that contains the username we want
+                username_in_reply_owner_xpath = "(" + like_owner_xpath + "/preceding-sibling::div[." + generic_username_in_reply_path + "])[last()]"      
+                            
+                #Xpath to the username we want
+                actual_username_in_reply_path = username_in_reply_owner_xpath + generic_username_in_reply_path
               
                 #username_owner_xpath = "(" + like_owner_xpath + "/preceding-sibling::div)[last()]" + actual_username_path                              
                 #test_xpath = self.driver.find_element_by_xpath(actual_username_path)
                 like_owner =  self.driver.find_element_by_xpath(like_owner_xpath)
                 username_owner = self.driver.find_element_by_xpath(actual_username_path)
+                
+                try:
+                    element = WebDriverWait(self.driver, 10).until(
+                        EC.presence_of_element_located((By.XPATH, self.actual_username_in_reply_path))
+                    )
+                    username_owner_in_reply = self.driver.find_element_by_xpath(actual_username_in_reply_path)
+                    if username_owner_in_reply.location["y"] > username_owner.location["y"]:
+                        username_owner = username_owner_in_reply
+                    logger.info("Username owner in reply text: ")
+                    logger.info(username_owner_in_reply.text)
+                    logger.info("Check1")
+                    logger.info(username_owner.text)
+                except:
+                    logger.debug("actualy_username_in_reply_path isn't loading I think")
+                    pass
+                    
                 #with open("filetest"+str(index)+".png", "wb") as f
-                #   f.write(username_owner.screenshot_as_png)               
+                #   f.write(username_owner.screenshot_as_png) 
                 like_dictionary = {
                     "element" : like,
                     "type" : "Like",
                     "text" : like.text.split()[-1],
-                    "owner" : username_owner.text,
-                    "like_owner_text" : like_owner.text,
+                    "owner" : username_owner.text.split()[0],
+                    "like_owner_text" : unidecode(str(like_owner.text)),
                 }
+                if " replied to " in like_dictionary["like_owner_text"]:
+                    like_dictionary["owner"] = like_dictionary["like_owner_text"].split()[0]
+                    
+                logger.info("Like dictionary: ")
+                logger.info(like_dictionary)
                 like_dictionary_list.append(like_dictionary)       
        
-        messages_dictionary_list.sort(key=lambda x:x["element"].location["y"])
-        
+        try:
+            messages_dictionary_list.sort(key=lambda x:x["element"].location["y"])
+        except:
+            logger.error("Could not sort message list, probably stale element")
+            return self.monitor_group_chat()
+            
         return [messages_dictionary_list, like_dictionary_list]
                   
     def nav_user(self, user):
-        print("Navigating to person")
+        logger.info("Navigating to person")
         self.driver.get('{}{}/'.format(self.base_url, user))
-        print("Finished avigating to person")
+        logger.info("Finished avigating to person")
              
     def follow_user(self, user):
         self.nav_user(user)
@@ -211,12 +266,12 @@ class InstagramBot:
                 EC.presence_of_element_located((By.CLASS_NAME, '_6VtSN'))
             )
         except:
-            print("Following failed")
+            logger.exception("Following failed")
             self.driver.quit()
             
         follow_button = self.driver.find_element_by_class_name('_6VtSN')
         follow_button.click()
-        print("Follow complete")
+        logger.info("Follow complete")
         
     def get_info(self):
         try:
@@ -228,9 +283,9 @@ class InstagramBot:
         
             
         info = self.driver.find_elements_by_class_name('g47SY')
-        print(info[0].text)
-        print(info[1].text)
-        print(info[2].text)
+        logger.info(info[0].text)
+        logger.info(info[1].text)
+        logger.info(info[2].text)
         
         info[0] = info[0].text.replace(',', '')
         info[1] = info[1].text.replace(',', '')
@@ -250,19 +305,23 @@ class InstagramBot:
         info_array = []
         for person in people_to_check:
             self.nav_user(person[0])
-            print(person[0])
+            logger.info(person[0])
             info = self.get_info()
             with conn:
                 c.execute("UPDATE instagramData SET Posts = :Posts, Followers = :Followers, Following = :Following WHERE Username = :Username", 
                 {'Posts': info[0], 'Followers': info[1], 'Following': info[2], 'Username':person[0]})
-        print("Done Updating")
+        logger.info("Done Updating")
             
     
     def update_insta_stats_in_database(self):
-    
         insert_usernames_into_instagram_data()
         list_of_people_to_check = get_list_of_insta_usernames()
         self.update_peoples_info(list_of_people_to_check)
+        
+    def refresh_insta_chat():
+        self.driver.navigate().refresh();
+        # return the last message on the refresh page as the point to start counting from
+        return monitor_group_chat[0][-1]["element"]
        
 def insert_usernames_into_instagram_data():
     """
@@ -276,10 +335,8 @@ def insert_usernames_into_instagram_data():
         insta_usernames =  c.fetchall()
         
         usernames_to_add_to_insta = list(set(rice_usernames) - set(insta_usernames))
-        print(usernames_to_add_to_insta)
+        logger.info(usernames_to_add_to_insta)
         for username in usernames_to_add_to_insta: #, {'username': username}
-            #print(username[0])
-            #c.execute("INSERT INTO employees VALUES (:first, :last, :pay)", {'first': emp.first, 'last': emp.last, 'pay': emp.pay})
             c.execute("INSERT INTO instagramData (Username) VALUES (:username)", {'username': username[0]})
 
 
@@ -307,13 +364,14 @@ def set_appearances_and_likes_to_zero():
 if __name__ == '__main__':
     
     #Uncomment to reset database
-    #set_appearances_and_likes_to_zero()
+    set_appearances_and_likes_to_zero()
     
     #Getting the password
     with open("passwordFile.txt", "r") as passwordFile:
-        password = passwordFile.read()
+        password = passwordFile.readline()
+        instaUsername = passwordFile.readline()
         
-    bot = InstagramBot('testbottesting', password)
+    bot = InstagramBot(instaUsername, password)
     
     group_to_monitor = 'UofTea'
     bot.navigate_to_group_chat(group_to_monitor)
@@ -326,18 +384,35 @@ if __name__ == '__main__':
     lastMessage = ''
     #List of like elements already noted into database
     already_liked = []
+    
+    # logger.info("Testing location of single element")
+    # try:
+        # element = WebDriverWait(bot.driver, 10).until(
+            # EC.presence_of_element_located((By.CSS_SELECTOR, self.message_senders_css_selector))
+        # )
+    # except:
+        # pass
+        
+    # messages = bot.driver.find_elements_by_css_selector(bot.message_css_selector);
+    
+    # message = messages[-1]
+    # while True:
+        # time.sleep(3)
+        # logger.info("Messgae location: " + str(message.location["y"]))
+        # logger.info("Message text: " + unidecode(str(message.text)))
+        
     while True:
-        all_convo_elements = bot.monitor_group_chat(group_to_monitor)
+        all_convo_elements = bot.monitor_group_chat()
         convo_elements = all_convo_elements[0]
         likes_dictionary_list = all_convo_elements[1]
         if convo_elements[-1] != lastMessage:
             bot.actions.send_keys(Keys.SPACE).perform()
             if lastMessage in convo_elements: #If the last message is still visible in convo
-                print("Last message visible, should be on subsequent loads")
+                logger.info("Last message visible, should be on subsequent loads")
                 new_messages = convo_elements[(convo_elements.index(lastMessage)+1):] #Gets all the messages beyond the last recorded message sent
                 new_new_messages_flag = True
             else:
-                print("Last message not visible, should be on first load")
+                logger.info("Last message not visible, should be on first load")
                 new_messages = convo_elements
                 new_new_messages_flag = False
                 
@@ -347,9 +422,11 @@ if __name__ == '__main__':
             list_of_usernames_liked = []
             for message in new_messages:
                 try:
-                    print("Message Text: ", message["element"].text) #Could use message["text"], but want reply headers to show up differently from usernames
+                #Could use message["text"], but want reply headers to show up differently from usernames
+                #unidecode(str()) strips out the emojis
+                    logger.info("Message Text: " + unidecode(str(message["element"].text))) 
                 except:
-                    print("Error: Emoji message")
+                    logger.exception("Error: Emoji message")
                 
                 if (message["text"],) in list_of_usernames and message["type"] == "Username": 
                     #Split the message text to get the first word in case the message is a reply
@@ -362,9 +439,9 @@ if __name__ == '__main__':
                     list_of_usernames_liked.append(like["owner"])
                     already_liked.append(like["element"]) 
                     try:
-                        print("Like owner message text: ", like["like_owner_text"])
+                        logger.info("Like owner message text: " + unidecode(str(like["like_owner_text"]))) 
                     except:
-                        print("Error, picture")
+                        logger.exception("Error, picture")
                                         
             username_and_likes_dictionary_list = []
             for username in list_of_usernames: #Get each username from the list of usernames retrieved from database. Note: it'll be a tuple of one element
@@ -374,7 +451,10 @@ if __name__ == '__main__':
                     "Appearances" : list_of_usernames_appeared.count(username[0]),            
                 }
                 username_and_likes_dictionary_list.append(username_and_likes_dictionary)
-              
+                 
+            
+            #logger.info("List_of_usernames_liked: ")
+            #logger.info(list_of_usernames_liked)
             username_and_likes_dictionary_tuple = tuple(username_and_likes_dictionary_list)
             with conn:
                 c.executemany("UPDATE groupChatUsernameFrequency SET Appearances = Appearances + :Appearances WHERE Username = :Username", 
@@ -385,16 +465,19 @@ if __name__ == '__main__':
             lastMessage = convo_elements[-1]
            
             for message in new_messages:
-                if message["text"] == "!exit_command" and new_new_messages_flag:
-                    print("Exiting")
+                if message["text"] == "!quit" and new_new_messages_flag:
+                    logger.info("Exiting")
                     bot.driver.close()
                     quit()
                 
             new_messages = []
         time.sleep(3)
         
+        #Reload page if many messages are sent
+        if len(all_convo_elements)> 200:
+            last_massage = bot.refresh_insta_chat()
         #For bug testing
-        #input("Go again?"
-    print("All done")
+        #input("Go again?")
+    logger.info("All done")
     
     
