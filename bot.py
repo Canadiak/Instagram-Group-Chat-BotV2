@@ -52,7 +52,7 @@ class InstagramBot:
         self.message_sender_css_selector = ".Igw0E.IwRSH.eGOV_._4EzTm.bkEs3.Qjx67.aGBdT > ._7UhW9.PIoXz.MMzan._0PwGv.fDxYl" 
         self.replies_css_selector = ".Igw0E.IwRSH.eGOV_._4EzTm.bkEs3.soMvl.JI_ht.DhRcB > ._7UhW9.PIoXz.MMzan._0PwGv.uL8Hv"
         self.likes_css_selector = "._7UhW9.PIoXz.MMzan.KV-D4.uL8Hv"
-        self.actions = ActionChains(self.driver)                       
+        #self.actions = ActionChains(self.driver)                       
         
     def login(self):
         logger.info("Log in start")
@@ -64,11 +64,11 @@ class InstagramBot:
             
             self.driver.find_element_by_name('username').send_keys(self.username)
             self.driver.find_element_by_name('password').send_keys(self.password)
-            self.driver.find_element_by_xpath('//*[@id="loginForm"]/div/div[3]/button').click() #Log in button
+            self.driver.find_element_by_css_selector('.Igw0E.IwRSH.eGOV_._4EzTm').click() #Log in button  
             logger.info("Log in complete")
         except:
             logger.exception("Log in failed")
-            self.driver.quit()        
+            #self.driver.quit()        
                 
     def navigate_to_group_chat(self, group_to_monitor):
         logger.info("Beginning navigation to group chat directory")
@@ -373,6 +373,7 @@ if __name__ == '__main__':
         
     bot = InstagramBot(instaUsername, password)
     
+    quit()
     group_to_monitor = 'UofTea'
     bot.navigate_to_group_chat(group_to_monitor)
     lastMessageIndex = 0
