@@ -52,7 +52,7 @@ class InstagramBot:
         self.message_sender_css_selector = ".Igw0E.IwRSH.eGOV_._4EzTm.bkEs3.Qjx67.aGBdT > ._7UhW9.PIoXz.MMzan._0PwGv.fDxYl" 
         self.replies_css_selector = ".Igw0E.IwRSH.eGOV_._4EzTm.bkEs3.soMvl.JI_ht.DhRcB > ._7UhW9.PIoXz.MMzan._0PwGv.uL8Hv"
         self.likes_css_selector = "._7UhW9.PIoXz.MMzan.KV-D4.uL8Hv"
-        #self.actions = ActionChains(self.driver)                       
+        self.actions = ActionChains(self.driver)  #Action chain for pressing space to scroll down chat    
         
     def login(self):
         logger.info("Log in start")
@@ -123,135 +123,140 @@ class InstagramBot:
         message_senders = self.driver.find_elements_by_css_selector(self.message_sender_css_selector);
         message_sender_replies = self.driver.find_elements_by_css_selector(self.replies_css_selector);
         likes = self.driver.find_elements_by_css_selector(self.likes_css_selector);
-              
-        messages_dictionary_list = []
-        for message in messages:
-            try:
-                message_dictionary = {
-                    "element" : message,
-                    "type" : "Message",
-                    "text" : message.text,
+        
+        try:
+            messages_dictionary_list = []      
+            for message in messages:
+               
+                    message_dictionary = {
+                        "element" : message,
+                        "type" : "Message",
+                        "text" : message.text,
+                    }
+                    messages_dictionary_list.append(message_dictionary)
+               
+                    
+            for username in message_senders:
+                sender_dictionary = {
+                    "element" : username,
+                    "type" : "Username",
+                    "text" : username.text,
                 }
-                messages_dictionary_list.append(message_dictionary)
-            except:
+                messages_dictionary_list.append(sender_dictionary)           
+            #Change text in reply messages header to get first word, so it becomes effectively identical to regular message header
+            for username in message_sender_replies:
+                sender_dictionary = {
+                    "element" : username,
+                    "type" : "Username",
+                    "text" : username.text.split()[0],
+                }
+                messages_dictionary_list.append(sender_dictionary)
+                
+            #Need seperate list for likes because likes are in their own order
+            like_dictionary_list = []
+            #Count index because finding the location of like in the html with xpath takes index
+            for index, like in enumerate(likes):
+                valid_num_of_likes = False
+                if like.text[-1].isdigit():
+                    if int(like.text[-1]) > 3:
+                        valid_num_of_likes = True
+                
+                if "+" in like.text or valid_num_of_likes:              
+                    like_contains_string = """contains(@class, '_7UhW9') and contains(@class, 'PIoXz') and contains(@class, 'MMzan')
+                                and contains(@class, 'KV-D4') and contains(@class, 'uL8Hv')""" 
+                 
+                    #Index+1 because xpath starts counting at 1, not 0
+                    like_xpath = "(//div[" + like_contains_string + "])[" + str(index+1) + "]"
+                                
+                    ancestor_of_like_contains_string = """contains(@class, 'Igw0E') and contains(@class, 'Xf6Yq') and contains(@class, 'eGOV_')
+                                            and contains(@class, 'ybXk5') and contains(@class, '_4EzTm')"""             
+                    
+                    ancestor_of_like_xpath = "div[" + ancestor_of_like_contains_string + "]"
+                    
+                    #What the like is on, e.g a comment or picture
+                    like_owner_xpath = like_xpath + "/ancestor::" + ancestor_of_like_xpath               
+                    
+                    actual_username_contains_string = """contains(@class, '_7UhW9') and contains(@class, 'PIoXz') and contains(@class, 'MMzan')
+                                and contains(@class, '_0PwGv') and contains(@class, 'fDxYl')"""
+                                
+                    
+                    
+                    #Xpath to an username
+                    generic_username_path = "//div[" + actual_username_contains_string + "]"
+                    
+                    #Expath to the div that contains the username we want
+                    username_owner_xpath = "(" + like_owner_xpath + "/preceding-sibling::div[." + generic_username_path + "])[last()]"      
+                                
+                    #Xpath to the username we want
+                    actual_username_path = username_owner_xpath + generic_username_path #[" + actual_username_contains_string + "]"              
+                    #username_ancestor_xpath = "//div[" + actual_username_path
+                    
+                    
+                    
+                    #In case the username we want is in a reply
+                    
+                    actual_username_in_reply_contains_string = """contains(@class, '_7UhW9') and contains(@class, 'PIoXz') and contains(@class, 'MMzan')
+                                and contains(@class, '_0PwGv') and contains(@class, 'uL8Hv')"""
+                                
+                    generic_username_in_reply_path = "//div[" + actual_username_in_reply_contains_string + "]"
+                    
+                    #Expath to the div that contains the username we want
+                    username_in_reply_owner_xpath = "(" + like_owner_xpath + "/preceding-sibling::div[." + generic_username_in_reply_path + "])[last()]"      
+                                
+                    #Xpath to the username we want
+                    actual_username_in_reply_path = username_in_reply_owner_xpath + generic_username_in_reply_path
+                  
+                    #username_owner_xpath = "(" + like_owner_xpath + "/preceding-sibling::div)[last()]" + actual_username_path                              
+                    #test_xpath = self.driver.find_element_by_xpath(actual_username_path)
+                    like_owner =  self.driver.find_element_by_xpath(like_owner_xpath)
+                    username_owner = self.driver.find_element_by_xpath(actual_username_path)
+                    
+                    # I got the xpaths to the username in replies wrong, but I could probably fix at some point and it'd be better
+                    # try:
+                        # element = WebDriverWait(self.driver, 10).until(
+                            # EC.presence_of_element_located((By.XPATH, self.actual_username_in_reply_path))
+                        # )
+                        # username_owner_in_reply = self.driver.find_element_by_xpath(actual_username_in_reply_path)
+                        # if username_owner_in_reply.location["y"] > username_owner.location["y"]:
+                            # username_owner = username_owner_in_reply
+                        # logger.info("Username owner in reply text: ")
+                        # logger.info(username_owner_in_reply.text)
+                        # logger.info("Check1")
+                        # logger.info(username_owner.text)
+                    # except:
+                        # logger.debug("actualy_username_in_reply_path isn't loading I think")
+                        # pass
+                        
+                    #with open("filetest"+str(index)+".png", "wb") as f
+                    #   f.write(username_owner.screenshot_as_png) 
+                    like_dictionary = {
+                        "element" : like,
+                        "type" : "Like",
+                        "text" : like.text.split()[-1],
+                        "owner" : username_owner.text.split()[0],
+                        "like_owner_text" : unidecode(str(like_owner.text)),
+                    }
+                    if " replied to " in like_dictionary["like_owner_text"]:
+                        like_dictionary["owner"] = like_dictionary["like_owner_text"].split()[0]
+                        
+                    logger.info("Like dictionary: ")
+                    logger.info(like_dictionary)
+                    like_dictionary_list.append(like_dictionary) 
+                    
+        except:
                 # logger.exception("Error, made a png log")
                 # f = open("filetest.png", "wb")
                 # f.write(message.screenshot_as_png)
                 # f.close
-                logger.error("Something went wrong")
-                
-        for username in message_senders:
-            sender_dictionary = {
-                "element" : username,
-                "type" : "Username",
-                "text" : username.text,
-            }
-            messages_dictionary_list.append(sender_dictionary)           
-        #Change text in reply messages header to get first word, so it becomes effectively identical to regular message header
-        for username in message_sender_replies:
-            sender_dictionary = {
-                "element" : username,
-                "type" : "Username",
-                "text" : username.text.split()[0],
-            }
-            messages_dictionary_list.append(sender_dictionary)
-            
-        #Need seperate list for likes because likes are in their own order
-        like_dictionary_list = []
-        #Count index because finding the location of like in the html with xpath takes index
-        for index, like in enumerate(likes):
-            valid_num_of_likes = False
-            if like.text[-1].isdigit():
-                if int(like.text[-1]) > 3:
-                    valid_num_of_likes = True
-            
-            if "+" in like.text or valid_num_of_likes:              
-                like_contains_string = """contains(@class, '_7UhW9') and contains(@class, 'PIoXz') and contains(@class, 'MMzan')
-                            and contains(@class, 'KV-D4') and contains(@class, 'uL8Hv')""" 
-             
-                #Index+1 because xpath starts counting at 1, not 0
-                like_xpath = "(//div[" + like_contains_string + "])[" + str(index+1) + "]"
-                            
-                ancestor_of_like_contains_string = """contains(@class, 'Igw0E') and contains(@class, 'Xf6Yq') and contains(@class, 'eGOV_')
-                                        and contains(@class, 'ybXk5') and contains(@class, '_4EzTm')"""             
-                
-                ancestor_of_like_xpath = "div[" + ancestor_of_like_contains_string + "]"
-                
-                #What the like is on, e.g a comment or picture
-                like_owner_xpath = like_xpath + "/ancestor::" + ancestor_of_like_xpath               
-                
-                actual_username_contains_string = """contains(@class, '_7UhW9') and contains(@class, 'PIoXz') and contains(@class, 'MMzan')
-                            and contains(@class, '_0PwGv') and contains(@class, 'fDxYl')"""
-                            
-                
-                
-                #Xpath to an username
-                generic_username_path = "//div[" + actual_username_contains_string + "]"
-                
-                #Expath to the div that contains the username we want
-                username_owner_xpath = "(" + like_owner_xpath + "/preceding-sibling::div[." + generic_username_path + "])[last()]"      
-                            
-                #Xpath to the username we want
-                actual_username_path = username_owner_xpath + generic_username_path #[" + actual_username_contains_string + "]"              
-                #username_ancestor_xpath = "//div[" + actual_username_path
-                
-                
-                
-                #In case the username we want is in a reply
-                
-                actual_username_in_reply_contains_string = """contains(@class, '_7UhW9') and contains(@class, 'PIoXz') and contains(@class, 'MMzan')
-                            and contains(@class, '_0PwGv') and contains(@class, 'uL8Hv')"""
-                            
-                generic_username_in_reply_path = "//div[" + actual_username_in_reply_contains_string + "]"
-                
-                #Expath to the div that contains the username we want
-                username_in_reply_owner_xpath = "(" + like_owner_xpath + "/preceding-sibling::div[." + generic_username_in_reply_path + "])[last()]"      
-                            
-                #Xpath to the username we want
-                actual_username_in_reply_path = username_in_reply_owner_xpath + generic_username_in_reply_path
-              
-                #username_owner_xpath = "(" + like_owner_xpath + "/preceding-sibling::div)[last()]" + actual_username_path                              
-                #test_xpath = self.driver.find_element_by_xpath(actual_username_path)
-                like_owner =  self.driver.find_element_by_xpath(like_owner_xpath)
-                username_owner = self.driver.find_element_by_xpath(actual_username_path)
-                
-                try:
-                    element = WebDriverWait(self.driver, 10).until(
-                        EC.presence_of_element_located((By.XPATH, self.actual_username_in_reply_path))
-                    )
-                    username_owner_in_reply = self.driver.find_element_by_xpath(actual_username_in_reply_path)
-                    if username_owner_in_reply.location["y"] > username_owner.location["y"]:
-                        username_owner = username_owner_in_reply
-                    logger.info("Username owner in reply text: ")
-                    logger.info(username_owner_in_reply.text)
-                    logger.info("Check1")
-                    logger.info(username_owner.text)
-                except:
-                    logger.debug("actualy_username_in_reply_path isn't loading I think")
-                    pass
-                    
-                #with open("filetest"+str(index)+".png", "wb") as f
-                #   f.write(username_owner.screenshot_as_png) 
-                like_dictionary = {
-                    "element" : like,
-                    "type" : "Like",
-                    "text" : like.text.split()[-1],
-                    "owner" : username_owner.text.split()[0],
-                    "like_owner_text" : unidecode(str(like_owner.text)),
-                }
-                if " replied to " in like_dictionary["like_owner_text"]:
-                    like_dictionary["owner"] = like_dictionary["like_owner_text"].split()[0]
-                    
-                logger.info("Like dictionary: ")
-                logger.info(like_dictionary)
-                like_dictionary_list.append(like_dictionary)       
-       
+                logger.error("Something went wrong in the dictionary making")
+                return self.monitor_group_chat()
         try:
             messages_dictionary_list.sort(key=lambda x:x["element"].location["y"])
         except:
-            logger.error("Could not sort message list, probably stale element")
+            logger.error("Something went wrong in the sorting")
             return self.monitor_group_chat()
-            
+        
+        
         return [messages_dictionary_list, like_dictionary_list]
                   
     def nav_user(self, user):
@@ -320,6 +325,7 @@ class InstagramBot:
         
     def refresh_insta_chat():
         self.driver.navigate().refresh();
+        already_liked = []
         # return the last message on the refresh page as the point to start counting from
         return monitor_group_chat[0][-1]["element"]
        
@@ -373,7 +379,6 @@ if __name__ == '__main__':
         
     bot = InstagramBot(instaUsername, password)
     
-    quit()
     group_to_monitor = 'UofTea'
     bot.navigate_to_group_chat(group_to_monitor)
     lastMessageIndex = 0
@@ -466,7 +471,7 @@ if __name__ == '__main__':
             lastMessage = convo_elements[-1]
            
             for message in new_messages:
-                if message["text"] == "!quit" and new_new_messages_flag:
+                if message["text"] == "!fuck_you_xi" and new_new_messages_flag:
                     logger.info("Exiting")
                     bot.driver.close()
                     quit()
