@@ -58,7 +58,7 @@ class InstagramBot:
         logger.info("Log in start")
         self.driver.get('{}accounts/login/'.format(self.base_url))
         try:
-            element = WebDriverWait(self.driver, 10).until(
+            element = WebDriverWait(self.driver, 5).until(
                 EC.presence_of_element_located((By.NAME, 'username'))
             )
             
@@ -69,35 +69,9 @@ class InstagramBot:
         except:
             logger.exception("Log in failed")
             #self.driver.quit()        
-                
+            
+
     def navigate_to_group_chat(self, group_to_monitor):
-        logger.info("Beginning navigation to group chat directory")
-        try:
-            element = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.CLASS_NAME, 'xWeGp')) #Button to click for group chat directory
-            )
-        except:
-            logger.exception("Monitoring failed failed")
-            #self.driver.quit()
-        groupchat_directory = self.driver.find_element_by_class_name('xWeGp') 
-        groupchat_directory.click()
-        logger.info("Complete navigation to group chat directory")
-        
-        logger.info("Clicking Not Now button")
-        try:
-            element = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.CLASS_NAME, 'HoLwm')) #Not now button
-            )
-        except:
-            logger.exception("Clicking Not Now button failed")
-            #self.driver.quit()
-        not_now = self.driver.find_element_by_class_name('HoLwm')
-        not_now.click()
-        
-        logger.info("Not Now button clicked")
-        #aOOlW   HoLwm 
-        
-        logger.info("Begin navigating to group chat")
         try:
             element = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.PARTIAL_LINK_TEXT, group_to_monitor))
@@ -107,11 +81,45 @@ class InstagramBot:
             #self.driver.quit()
         group_chat = self.driver.find_element_by_partial_link_text(group_to_monitor)
         group_chat.click()
+        
+    
+    def navigate_to_group_chat_directory(self, group_to_monitor):
+        logger.info("Beginning navigation to group chat directory")
+        try:
+            element = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.CLASS_NAME, 'xWeGp')) #Button to click for group chat directory
+            )
+            groupchat_directory = self.driver.find_element_by_class_name('xWeGp') 
+            groupchat_directory.click()
+            logger.info("Complete navigation to group chat directory")
+        except:
+            logger.exception("Navigation to group chat directory failed")
+            #self.driver.quit()
+        
+        
+        logger.info("Clicking Not Now button")
+        try:
+            element = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.CLASS_NAME, 'HoLwm')) #Not now button
+            )
+            not_now = self.driver.find_element_by_class_name('HoLwm')
+            not_now.click()
+            logger.info("Not Now button clicked")
+        except:
+            logger.exception("Clicking Not Now button failed")
+            #self.driver.quit()
+        
+        
+        
+        #aOOlW   HoLwm 
+        
+        logger.info("Begin navigating to group chat")
+        self.navigate_to_group_chat(group_to_monitor)
           
     def monitor_group_chat(self):
         logger.info("Finding messages")
         try:
-            element = WebDriverWait(self.driver, 10).until(
+            element = WebDriverWait(self.driver, 5).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, self.message_senders_css_selector))
             )
         except:
@@ -323,11 +331,12 @@ class InstagramBot:
         list_of_people_to_check = get_list_of_insta_usernames()
         self.update_peoples_info(list_of_people_to_check)
         
-    def refresh_insta_chat():
-        self.driver.navigate().refresh();
+    def refresh_insta_chat(self, group_to_monitor):
         already_liked = []
+        self.driver.refresh()
+        self.navigate_to_group_chat(group_to_monitor)
         # return the last message on the refresh page as the point to start counting from
-        return monitor_group_chat[0][-1]["element"]
+        return self.monitor_group_chat()[0][-1]["element"]
        
 def insert_usernames_into_instagram_data():
     """
@@ -380,14 +389,14 @@ if __name__ == '__main__':
     bot = InstagramBot(instaUsername, password)
     
     group_to_monitor = 'UofTea'
-    bot.navigate_to_group_chat(group_to_monitor)
-    lastMessageIndex = 0
+    bot.navigate_to_group_chat_directory(group_to_monitor)
+    last_messageIndex = 0
     #Get list of new messages
     #[("jeremy.downey",), ("catherinee.13",)]
     list_of_usernames = get_list_of_insta_usernames()
     new_new_messages_flag = False #Flag so !quit from old convos doesn't trigger bot to quit
     new_messages = ''  
-    lastMessage = ''
+    last_message = ''
     #List of like elements already noted into database
     already_liked = []
     
@@ -411,11 +420,11 @@ if __name__ == '__main__':
         all_convo_elements = bot.monitor_group_chat()
         convo_elements = all_convo_elements[0]
         likes_dictionary_list = all_convo_elements[1]
-        if convo_elements[-1] != lastMessage:
+        if convo_elements[-1] != last_message:
             bot.actions.send_keys(Keys.SPACE).perform()
-            if lastMessage in convo_elements: #If the last message is still visible in convo
+            if last_message in convo_elements: #If the last message is still visible in convo
                 logger.info("Last message visible, should be on subsequent loads")
-                new_messages = convo_elements[(convo_elements.index(lastMessage)+1):] #Gets all the messages beyond the last recorded message sent
+                new_messages = convo_elements[(convo_elements.index(last_message)+1):] #Gets all the messages beyond the last recorded message sent
                 new_new_messages_flag = True
             else:
                 logger.info("Last message not visible, should be on first load")
@@ -468,7 +477,7 @@ if __name__ == '__main__':
                 c.executemany("UPDATE groupChatUsernameFrequency SET Likes = Likes + :Likes WHERE Username = :Username", 
                     username_and_likes_dictionary_tuple)
                     
-            lastMessage = convo_elements[-1]
+            last_message = convo_elements[-1]
            
             for message in new_messages:
                 if message["text"] == "!fuck_you_xi" and new_new_messages_flag:
@@ -480,8 +489,13 @@ if __name__ == '__main__':
         time.sleep(3)
         
         #Reload page if many messages are sent
-        if len(all_convo_elements)> 200:
-            last_massage = bot.refresh_insta_chat()
+        if len(convo_elements) > 200:
+            logger.info("""
+            
+            Refreshing Insta
+            
+            """)
+            last_message = bot.refresh_insta_chat(group_to_monitor)
         #For bug testing
         #input("Go again?")
     logger.info("All done")
