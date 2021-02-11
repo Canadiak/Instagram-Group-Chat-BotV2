@@ -25,7 +25,7 @@ from unidecode import unidecode
 from firebase_admin import db
 from firebase_admin import credentials
 
-
+#Note: No Mr Mime or Nidoran purple because of name weirdness
 
 conn = sqlite3.connect('groupchatDatabase.db')
 c = conn.cursor()
@@ -53,7 +53,7 @@ class PokegramBot(InstagramBot):
         message_sender_replies = self.driver.find_elements_by_css_selector(self.replies_css_selector);
         
         for message in messages:
-            #print("Check")
+            logger.info("Message text: " + message.text)
             if 'p!c' in message.text:
                 logger.info("Pokemon name: " + pokemonName)
                 logger.info("Message lower case: " + message.text.lower())
@@ -73,6 +73,7 @@ class PokegramBot(InstagramBot):
                         c.execute("UPDATE groupChatUsernameFrequency SET Pokemon = Pokemon || :pokemonName WHERE Username = :Username", 
                         {'pokemonName': " " +pokemonName.capitalize(), 'Username':username})
                         notYetFound = False
+                        pokeBot.pokemon_flee_counter
                         break
                     
     def find_username_from_message(self, pokemonName):
@@ -90,20 +91,33 @@ class PokegramBot(InstagramBot):
             logger.info("Check 4, for loop")
             if capture_span.location["y"] > pokemon_picture.location["y"]:
                 logger.info("Check 5, span.location")
-                target_capture_span_xpath = xpath_to_capture_spans[index+1]
-                logger.info("Target_capture_span_xpath: " + xpath_to_capture_spans[index+1])
-                username_path = self.get_sender_username_from_element_xpath(target_capture_span_xpath + "[" + str(index+1) + "]")               
+                target_capture_span_xpath = xpath_to_capture_spans + "[" +  str(index+1) + "]" #Already has () around xpath_to_capture_spans
+                logger.info("Target_capture_span_xpath: " + target_capture_span_xpath)
+                username_path = self.get_sender_username_from_element_xpath(target_capture_span_xpath)               
                 self.pokemonCaught = True
                 break
                 
         if self.pokemonCaught:
             logger.info("Check 6, if self.pokemoncaught")
-            username_element = self.driver.find_element_by_xpath(username_path)
-            logger.info(username_element.text)
+            time.sleep(4) #Maybe just wait for it to load?
+            weird_error = False
+            try:
+                username_element = self.driver.find_element_by_xpath(username_path)
+            except Exception as e:
+                logger.info("The weird bug")
+                weird_error = True
+                logger.error(e)
+                
+            
+            if weird_error: #act like no one submitted it correctly if the weird error occurs
+                return ''
+            
+            logger.info("Check 7: Username element text: " + username_element.text)            
             if " replied to " in username_element.text:         
                 usernamer = username_element.text.split()[0]
             else:    
                 usernamer = username_element.text
+            
             return usernamer
                 
         return ''
@@ -132,9 +146,10 @@ if __name__ == '__main__':
             password = passwordFile.readline()
             instaUsername = passwordFile.readline()
 
+    already_liked = []
     
     pokeBot = PokegramBot(instaUsername, password)
-    group_to_monitor = 'Test'
+    group_to_monitor = 'Wanda'
     pokeBot.navigate_to_group_chat_directory(group_to_monitor)
     pokeBot.set_appearances_and_likes_to_zero()
     # filepath = "protoMegaman.jpg"
@@ -153,7 +168,7 @@ if __name__ == '__main__':
             pokeBot.monitor_gc_for_captures(pokemonName)
             
         pokeBot.counter_between_sending_pokemon += 1 
-        if pokeBot.pokemonCaught and pokeBot.counter_between_sending_pokemon > 20:
+        if pokeBot.pokemonCaught and pokeBot.counter_between_sending_pokemon > 25:
             pokeBot.counter_between_sending_pokemon = 0
             pokeBot.pokemonCaught = False
             fileToPaste = random.choice(os.listdir("Pokemon Images"))
@@ -166,12 +181,13 @@ if __name__ == '__main__':
         
         if pokeBot.pokemon_flee_counter > 30:
             message_box.click()
-            self.actions.send_keys(pokemonName.capitalize(), " has fled!")
-            self.actions.send_keys(Keys.RETURN)
-            self.actions.perform()
-            self.actions = 4 #Most hacky way to reset action chain
-            self.actions = ActionChains(self.driver)
+            pokeBot.actions.send_keys(pokemonName.capitalize(), " has fled!")
+            pokeBot.actions.send_keys(Keys.RETURN)
+            pokeBot.actions.perform()
+            pokeBot.actions = 4 #Most hacky way to reset action chain
+            pokeBot.actions = ActionChains(pokeBot.driver)
             pokeBot.pokemonCaught = True
+            pokeBot.pokemon_flee_counter = 0
                         
         convo_elements = all_convo_elements[0]
         likes_dictionary_list = all_convo_elements[1]
