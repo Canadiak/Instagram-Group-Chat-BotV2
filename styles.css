@@ -1,7 +1,7 @@
 body{
     background: #eab0dc;
-    font-family: ubuntu;
-    font-size: 20px;
+    font-family: verdana;
+    font-size: 18px;
 }
 
 h1{
@@ -14,104 +14,45 @@ h1{
 
 .content{
     background: #fff;
-    max-width: 700px;
+    max-width: 900px;
     margin: 30px auto;
     padding:  20px 30px;
     border-radius: 20px 20px 20px 20px;
     box-shadow: 1px 3px 5px rgba(0,0,0,0.1)
 }
 
-ul{
-    list-style-type: none;
-    padding: 0;
-}
-
-li{
-    padding: 20px;
-    background: #f6f6f6;
-    font-size: 20px;
-    color: #555;
-    position: relative;
-    border-bottom: 1px solid #e6e6e6;
-    height: 46px;
-}
-
-li:nth-child(even){
-    padding: 20px;
-    background: #f2f2f2;
-}
-
-li span{
-    display: block;
-}
-
-li span:nth-child(2){
-    font-size: 16px;
-    margin-top: 6px;
-    color: #999;
-}
-
-li div{
-    position: absolute;
-    top: 0;
-    right: 0px;
-    background: rgba(255,255,255,0.6);
-    width: 40px;
-    text-align: center;
-    padding: 10px 0;
-    font-weight:  bold;
-    cursor:  pointer;
-}
-
-form input{
-    float: left;
-    width: 38%;
-    margin: 0;
-    border: 0;
-    border-bottom: 1px solid #eee;
-    margin: 0 1%;
-    padding: 10px;
-    display: block;
-    box-sizing: border-box;
-    font-size: 18px;
-}
-
-form input:focus{
-    outline: none;
-    border-bottom: 3px solid #88236f;
-    padding-bottom: 8px;
-    transition: all ease 0.2s;
-}
-
-form:after{
-    content: '';
-    clear: both;
-    display: block;
-}
-
-button{
-    border: 0;
-    background: #fff;
-    border-radius: 10px;
-    padding: 13px;
-    width: 14%;
-    box-shadow: -1px 0px 1px rgba(0,0,0,0.1);
-    font-weight: bold;
-    font-family: ubuntu;
-    letter-spacing: 1px;
-    color: #999;
-}
-
-
 /* Table CSS */
+
+/* Table border */
 
 table {
   border-collapse: collapse;
+}
+table td, table th {
+  border: 1px solid rgb(220,220,220);
+}
+table tr:first-child th {
+  border: 0;
+}
+table tr:last-child td {
+  border: 0;
+}
+table tr td:first-child,
+table tr th:first-child {
+  border: 0;
+}
+table tr td:last-child,
+table tr th:last-child {
+  border: 0;
+}
+
+table {
+  
   letter-spacing: 1px;
   font-size: 0.8rem;
-  table-layout: fixed;
+  table-layout: auto;
   width: 100%;
-  font-size: 20px;
+  font-size: 18px;
   color: #222;
 }
 
@@ -119,17 +60,19 @@ td, th {
   /*border: 1px solid rgb(190,190,190);*/
   padding: 10px;
   font-weight: normal;
+  text-align: left;
 }
 
 th {
   background-color: rgb(235,235,235);
-  padding: 20px;
-  font-size: 23px;
+  padding: /*20px;*/
+  font-size: 20px;
 }
 
 td {
-  text-align: center;
+  text-align: left;
 }
+
 
 tr:nth-child(even) td {
   background-color: rgb(250,250,250);
@@ -144,9 +87,7 @@ tr:nth-child(odd) td {
 
 /* typography */
 
-html {
-  font-family: 'helvetica neue', helvetica, arial, sans-serif;
-}
+
 
 
 th {
@@ -158,9 +99,39 @@ td {
 }
 
 tbody td {
-  text-align: center;
+  text-align: left;
 }
 
 tfoot th {
-  text-align: right;
+  text-align: left;
+}
+
+
+/* Table Sorting */
+
+.table-sortable th{
+    
+    cursor: pointer;
+}
+
+.table-sortable .th-sort-asc::after{
+    content: "\25b4";
+    
+}
+
+.table-sortable .th-sort-desc::after{
+    content: "\25be";
+    
+}
+
+.table-sortable .th-sort-asc::after,
+.table-sortable .th-sort-desc::after{
+    margin-left: 5px;
+    
+}
+
+.table-sortable .th-sort-asc,
+.table-sortable .th-sort-desc{
+    background: rgba(0, 0, 0, 0.2);
+    
 }

@@ -11,24 +11,30 @@
         <script src="https://www.gstatic.com/firebasejs/8.2.5/firebase-database.js"></script>
 
         <link rel="stylesheet" href="styles.css">
-        <link rel="icon" href="icon_path" type="image/icon type">
+        <link rel="shortcut icon" href="Porygon.png" />
     </head>
     <body>
     
-        <pre id ="object">
         
-        </pre>
     
         <h1>Groupchat Activity</h1>
 
         <div class="content" >
-            <table id="activity-table">
-                <tr>
+            <table class="table-sortable">
+                <colgroup>
+                    <col id="col1" />
+                </colgroup>
+                <thead>
                     <th>Rank</th>
-                    <th>Username</th>
-                    <th>Appearances</th>
-                    <th>4+ Likes Received)</th>
-                </tr>
+                    <th class="header-sortable">Username</th>
+                    <th class="header-sortable">Appearances</th>
+                    <th class="header-sortable">4+ Likes Received</th>
+                    <th class="header-sortable">Pokemon</th>
+                    <th class="header-sortable">Number of Pokemon</th>
+                </thead>
+                <tbody id="activity-table-body">
+                
+                </tbody>
             </table>
         </div>
         
