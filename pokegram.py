@@ -87,7 +87,9 @@ class PokegramBot(InstagramBot):
         with conn:
             c.executemany("INSERT INTO comments VALUES(?,?,?);", 
                 message_list)    
-    
+        
+        self.insert_username_and_timestamp_into_firebase(message_list)
+        
     def remove_quotes_for_xpath(self, string):
         if '"' in string:
             listed_string = string.split('"')
@@ -209,8 +211,30 @@ class PokegramBot(InstagramBot):
                         pokeBot.pokemon_flee_counter
                         break
 
-    def insert_username_and_timestamp_into_firebase(self, username_timestamp_tuple):
-        pass
+    def insert_username_and_timestamp_into_firebase(self, username_timestamp_tuple_list):
+        logger.info("Update database for comments")
+        #try:
+        c.execute("SELECT * FROM comments")
+        comment_list = c.fetchall()
+        num_of_comments = len(comment_list)
+        #logger.info('Making JSON')
+        recordsDict = {}
+        try:
+            for index, record in enumerate(username_timestamp_tuple_list):
+                recordsDict["comment_num_" + str(index+num_of_comments+1-len(username_timestamp_tuple_list))] = {
+                   'Username' : record[0],
+                   'Timestamp' : record[2],
+                   
+                }
+        except Exception as e:
+            logger.info('Something went wrong with making JSON for comments')
+            logger.info(e)
+        
+        comments_ref = db.reference("CommentTimestampLog")
+        #comments_ref.push(recordsDict)
+        #logger.info(recordsDict)
+        # May want to use Push() instead, idk
+        comments_ref.update(recordsDict)
     
     def find_username_of_pokemon_capture(self, pokemonName):
         xpath_to_generic_message = """//div[contains(@class, '_7UhW9') and contains(@class, 'xLCgt') and contains(@class, 'p1tLr') and
@@ -307,8 +331,8 @@ if __name__ == '__main__':
     group_to_monitor = 'happy birthday'
     pokeBot.navigate_to_group_chat_directory(group_to_monitor)
     
-    pokeBot.set_appearances_and_likes_to_zero()
-    pokeBot.set_comments_to_zero()
+    #pokeBot.set_appearances_and_likes_to_zero()
+    #pokeBot.set_comments_to_zero()
     # filepath = "protoMegaman.jpg"
     # data = fileToData(filepath)
     # send_to_clipboard(win32clipboard.CF_DIB, data)
