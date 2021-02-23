@@ -109,6 +109,8 @@ class InstagramBot:
         except Exception as e:
             logger.error(e)
             logger.exception("Error, unable to navigate to group chat")
+            self.navigate_to_group_chat_directory()
+            self.navigate_to_group_chat()
             #self.driver.quit()
                
     def navigate_to_group_chat_directory(self, group_to_monitor):
@@ -309,8 +311,35 @@ class InstagramBot:
                     #((//span[contains(text(), 'p!c') and contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'arti')])/preceding-sibling::div[.contains(@class, '_7UhW9') and contains(@class, 'PIoXz') and contains(@class, 'MMzan') and contains(@class, '_0PwGv') ])[last()]
         #Xpath to the username we want
         logger.info("username_ancestor_xpath + generic_username_path: " + username_ancestor_xpath + generic_username_path)
+        logger.info("username_ancestor_xpath: " + username_ancestor_xpath)
+        logger.info("generic_username_path: " + generic_username_path)
         actual_username_path = "(" + username_ancestor_xpath + generic_username_path + ")[last()]" 
         return actual_username_path
+        
+    def get_sender_username_in_reply_from_element_xpath(self, sent_message_xpath):
+        actual_username_contains_string = """contains(@class, '_7UhW9') and contains(@class, 'PIoXz') and contains(@class, 'MMzan')
+                                and contains(@class, '_0PwGv') """
+                                
+                                #and contains(@class, 'fDxYl') removing because it excludes replies
+        #Xpath to an username
+        generic_username_path = "//div[" + actual_username_contains_string + "]"
+        
+        message_span_ancestor_that_is_sibling_to_reply_contains_string = """contains(@class, 'e9_tN') and contains(@class, 'JRTzd')"""
+                            
+        span_ancestor_that_is_sibling_to_reply_xpath = "div[" + message_span_ancestor_that_is_sibling_to_reply_contains_string + "]/.."
+        
+        ancestor_of_reply_xpath =  span_ancestor_that_is_sibling_to_reply_xpath + "/preceding-sibling::div"
+        
+        
+        #(//span[contains(text(), "test9")])[1]
+        #//div[contains(@class, 'e9_tN') and contains(@class, 'JRTzd')]/../preceding-sibling::div
+        
+        ancestor_of_specific_reply_xpath = sent_message_xpath + "/ancestor::" + ancestor_of_reply_xpath
+        logger.info("ancestor_of_specific_reply_xpath + generic_username_path: " + ancestor_of_specific_reply_xpath + generic_username_path)
+        logger.info("ancestor_of_specific_reply_xpath: " + ancestor_of_specific_reply_xpath)
+        logger.info("generic_username_path: " + generic_username_path)
+        actual_reply_username_path = "(" + ancestor_of_specific_reply_xpath + generic_username_path + ")[last()]" 
+        return actual_reply_username_path
     
     def get_message_box(self):         
         return self.driver.find_element_by_xpath("//textarea[@placeholder='Message...']")
@@ -396,7 +425,7 @@ class InstagramBot:
         self.driver.refresh()
         self.navigate_to_group_chat(group_to_monitor)
         # return the last message on the refresh page as the point to start counting from
-        self.driver.switch_to.window(driver.current_window_handle)
+        self.driver.switch_to.window(self.driver.current_window_handle)
         return self.monitor_group_chat()[0][-1]["element"]
        
     def insert_usernames_into_instagram_data(self):
@@ -434,7 +463,8 @@ class InstagramBot:
                          {'Appearances': 0, 'Username':username[0]})
                 c.execute("UPDATE groupChatUsernameFrequency SET Likes = :Likes WHERE Username = :Username", 
                          {'Likes': 0, 'Username':username[0]})
-        
+    
+    
     def set_realtime_database_to_match_sql(self):
         c.execute("SELECT Username, Appearances, Likes, Pokemon FROM groupChatUsernameFrequency") #Get all the username's in instagramData
         wholeInstaTable = c.fetchall()
@@ -483,7 +513,7 @@ if __name__ == '__main__':
         instaUsername = passwordFile.readline()
         
     bot = InstagramBot(instaUsername, password)
-    #bot.set_appearances_and_likes_to_zero()
+    bot.set_appearances_and_likes_to_zero()
     #bot.set_realtime_database_to_match_sql()
     #quit()
     

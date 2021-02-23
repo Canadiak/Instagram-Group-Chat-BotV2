@@ -7,7 +7,9 @@ import os
 import sqlite3
 import logging
 import firebase_admin
+import traceback
 
+from datetime import datetime
 from bot import InstagramBot
 from bot import c
 from bot import default_app
@@ -30,13 +32,20 @@ from firebase_admin import credentials
 conn = sqlite3.connect('groupchatDatabase.db')
 c = conn.cursor()
 
+#For the error when the username isn't logged properly
+class Error_true_username_element():
+    
+    def __init__(self):
+        self.text = "Error_1"
+
 class PokegramBot(InstagramBot): 
 
     def __init__(self, username, password):
         InstagramBot.__init__(self, username, password)
-        self.pokemonCaught = False
+        self.pokemonCaught = True
         self.counter_between_sending_pokemon = 0
         self.pokemon_flee_counter = 0
+        self.last_message_and_username_tuple = ''
     
     def send_image(self, image_path):
         data = fileToData(image_path)
@@ -45,7 +54,130 @@ class PokegramBot(InstagramBot):
         self.perform_paste()
         send_button = self.driver.find_element_by_xpath("//button[text()='Send']")
         send_button.click()
+    
+    def log_all_gc_messages(self):
+        print("Finding messages")
         
+        message_xpath = """//div[contains(@class, '_7UhW9') and contains(@class, 'xLCgt') and contains(@class, 'p1tLr') and
+                                        contains(@class, 'MMzan') and contains(@class, 'KV-D4') and  contains(@class, 'hjZTB')]"""
+        
+        excluding_reply_headers_ancestor_xpath = """//div[contains(@class, 'ZyFrc')]"""
+        
+        messages_excluding_reply_headers_xpath = excluding_reply_headers_ancestor_xpath + message_xpath
+        messages = self.driver.find_elements_by_xpath(messages_excluding_reply_headers_xpath);
+        now = datetime.now()
+        timestamp = now.strftime("%d/%m/%Y %H:%M:%S")
+        list_of_messages_and_usernames_and_timestamp = []
+        
+        
+        for message in messages:
+            logger.info("Message text: " + message.text)                    
+            username = self.find_username_from_message(message)
+            list_of_messages_and_usernames_and_timestamp.append((username, message.text, timestamp))
+        
+        if self.last_message_and_username_tuple == '':
+            message_list = list_of_messages_and_usernames_and_timestamp
+        else:
+            index = self.return_index_of_value_in_list_of_tuples(list_of_messages_and_usernames_and_timestamp, self.last_message_and_username_tuple)
+            message_list = list_of_messages_and_usernames_and_timestamp[index+1:]
+            
+        logger.info("Message_list: " )
+        logger.info(message_list)
+        self.last_message_and_username_tuple = (message_list[-1][0], message_list[-1][1])
+        with conn:
+            c.executemany("INSERT INTO comments VALUES(?,?,?);", 
+                message_list)    
+    
+    def remove_quotes_for_xpath(self, string):
+        if '"' in string:
+            listed_string = string.split('"')
+            
+            return_string = "concat('" + listed_string[0] + "', '\"', " 
+            for stringer in listed_string[1:-1]:
+                return_string += "'" + stringer + "', '\"', "
+                
+            return_string += "'" + listed_string[-1] + "')"
+            
+            return return_string.replace("Æ", "’")
+            
+            
+        string = string.replace("Æ", "’")
+        return ('"' + string + '"')
+
+    def find_username_from_message(self, message):
+        xpath_to_generic_message = """//div[contains(@class, '_7UhW9') and contains(@class, 'xLCgt') and contains(@class, 'p1tLr') and
+                                        contains(@class, 'MMzan') and contains(@class, 'KV-D4') and  contains(@class, 'hjZTB')]"""
+         
+        string_to_avoid_quotes = self.remove_quotes_for_xpath(message.text)
+        xpath_to_message_spans = """(//span[contains(text(), {})])""".format(string_to_avoid_quotes)   
+        logger.info("Message text: " + message.text)
+        message_span_list = self.driver.find_elements_by_xpath(xpath_to_message_spans)
+        logger.info("Check 3, xpath_to_message_spans: " + xpath_to_message_spans)
+        # Get the most recent message, to exclude messages with same text that appear earlier
+        for index, message_span in enumerate(message_span_list):
+            logger.info("Check 4, for loop")
+            if message_span.location["y"] <= message.location["y"]:
+                logger.info("Check 5, span.location")
+                target_message_span_xpath = xpath_to_message_spans + "[" +  str(index+1) + "]" #Already has () around xpath_to_capture_spans
+                logger.info("Target_message_span_xpath: " + target_message_span_xpath)
+                username_path = self.get_sender_username_from_element_xpath(target_message_span_xpath)
+                username_reply_path = self.get_sender_username_in_reply_from_element_xpath(target_message_span_xpath)
+        
+        logger.info("Check 6, if self.pokemoncaught")
+        #time.sleep(1) #Maybe just wait for it to load?
+        weird_error = False
+        username_element_exists = False
+        username_reply_element_exists = False
+        try:
+            try:
+                username_element = self.driver.find_element_by_xpath(username_path)
+                username_element_exists = True
+            except Exception as e:
+                logger.error(e)
+                logger.info("username_element does not exist")
+                
+            try:
+                username_reply_element = self.driver.find_element_by_xpath(username_reply_path)
+                username_reply_element_exists = True
+            except Exception as e:
+                logger.error(e)
+                logger.info("username_reply_element does not exist")    
+            
+        except Exception as e:
+            logger.info("The weird bug")
+            weird_error = True
+            logger.error(e)
+            
+        
+        if weird_error: #act like no one submitted it correctly if the weird error occurs
+            print( 'Error with xpath finding')
+            quit()
+        
+        true_username_containing_element = ''
+        if not username_element_exists and not username_reply_element_exists:
+            logger.error("This should not happen")
+            # quit()
+            true_username_element = Error_true_username_element()
+        elif not username_element_exists:
+            true_username_element = username_reply_element
+        elif not username_reply_element_exists: 
+            true_username_element = username_element            
+        else:
+            if username_element.location["y"] > username_reply_element.location["y"]:
+                logger.info("Check11")
+                true_username_element = username_element
+            else:
+                logger.info("Check12")
+                true_username_element = username_reply_element
+                
+        logger.info("Check 7: true_username_element text: " + true_username_element.text)            
+        if " replied to " in true_username_element.text:         
+            usernamer = true_username_element.text.split()[0]
+        else:    
+            usernamer = true_username_element.text
+        
+        return usernamer
+    
     def monitor_gc_for_captures(self, pokemonName):
         print("Finding messages")
         messages = self.driver.find_elements_by_css_selector(self.message_css_selector);
@@ -60,7 +192,7 @@ class PokegramBot(InstagramBot):
                 if pokemonName in message.text.lower():
                     logger.info("Check2")
                     
-                    username = self.find_username_from_message(pokemonName)
+                    username = self.find_username_of_pokemon_capture(pokemonName)
                     if username: # Will be non-empty, and therefore True, if there's a correct answer
                         print("Sending congrats message")
                         message_box.click()
@@ -70,13 +202,17 @@ class PokegramBot(InstagramBot):
                         self.actions = 4 #Most hacky way to reset action chain
                         self.actions = ActionChains(self.driver)
                         logger.info("Username of catcher: " + username)
-                        c.execute("UPDATE groupChatUsernameFrequency SET Pokemon = Pokemon || :pokemonName WHERE Username = :Username", 
-                        {'pokemonName': " " +pokemonName.capitalize(), 'Username':username})
+                        with conn:
+                            c.execute("UPDATE groupChatUsernameFrequency SET Pokemon = Pokemon || :pokemonName WHERE Username = :Username", 
+                            {'pokemonName': " " +pokemonName.capitalize(), 'Username':username})
                         notYetFound = False
                         pokeBot.pokemon_flee_counter
                         break
-                    
-    def find_username_from_message(self, pokemonName):
+
+    def insert_username_and_timestamp_into_firebase(self, username_timestamp_tuple):
+        pass
+    
+    def find_username_of_pokemon_capture(self, pokemonName):
         xpath_to_generic_message = """//div[contains(@class, '_7UhW9') and contains(@class, 'xLCgt') and contains(@class, 'p1tLr') and
                                         contains(@class, 'MMzan') and contains(@class, 'KV-D4') and  contains(@class, 'hjZTB')]"""
                                         
@@ -122,8 +258,27 @@ class PokegramBot(InstagramBot):
                 
         return ''
         
-                                        
-                    
+    def set_comments_to_zero(self):
+        
+        list_of_usernames = self.get_list_of_insta_usernames()
+        for username in list_of_usernames:
+            with conn:
+                c.execute("DELETE FROM comments;")                                    
+     
+    def return_index_of_value_in_list_of_tuples(self, list_of_tuples, tuple_of_values):
+    
+        
+        for index, tuple in enumerate(list_of_tuples):
+            if tuple[0] == tuple_of_values[0] and tuple[1] == tuple_of_values[1]:
+                return index
+    
+        logger.info("List of tuples: ")
+        logger.info(list_of_tuples)
+        logger.info("Tuple_of_values: ")
+        logger.info(tuple_of_values)
+        # Matches behavior of list.index
+        raise ValueError("list.index(x): x not in list")
+        
 def send_to_clipboard(clip_type, data):
     win32clipboard.OpenClipboard()
     win32clipboard.EmptyClipboard()
@@ -149,9 +304,11 @@ if __name__ == '__main__':
     already_liked = []
     
     pokeBot = PokegramBot(instaUsername, password)
-    group_to_monitor = 'Wanda'
+    group_to_monitor = 'happy birthday'
     pokeBot.navigate_to_group_chat_directory(group_to_monitor)
+    
     pokeBot.set_appearances_and_likes_to_zero()
+    pokeBot.set_comments_to_zero()
     # filepath = "protoMegaman.jpg"
     # data = fileToData(filepath)
     # send_to_clipboard(win32clipboard.CF_DIB, data)
@@ -159,108 +316,112 @@ if __name__ == '__main__':
     message_box = pokeBot.get_message_box()
     message_box.click()
     
-    fileToPaste = random.choice(os.listdir("Pokemon Images"))
-    pokeBot.send_image("Pokemon Images/" + fileToPaste)
-    pokemonName = fileToPaste.partition('.')[0]
+    
     list_of_usernames = pokeBot.get_list_of_insta_usernames()
     while True:
-        if not pokeBot.pokemonCaught:
-            pokeBot.monitor_gc_for_captures(pokemonName)
+        # if not pokeBot.pokemonCaught:
+            # pokeBot.monitor_gc_for_captures(pokemonName)
             
-        pokeBot.counter_between_sending_pokemon += 1 
-        if pokeBot.pokemonCaught and pokeBot.counter_between_sending_pokemon > 25:
-            pokeBot.counter_between_sending_pokemon = 0
-            pokeBot.pokemonCaught = False
-            fileToPaste = random.choice(os.listdir("Pokemon Images"))
-            logger.info("Sending new pokemon")
-            pokeBot.send_image("Pokemon Images/" + fileToPaste)
-            pokemonName = fileToPaste.partition('.')[0]
-            time.sleep(3)
+        # pokeBot.counter_between_sending_pokemon += 1 
+        # if pokeBot.pokemonCaught and pokeBot.counter_between_sending_pokemon > 25:
+            # pokeBot.counter_between_sending_pokemon = 0
+            # pokeBot.pokemonCaught = False
+            # fileToPaste = random.choice(os.listdir("Pokemon Images"))
+            # logger.info("Sending new pokemon")
+            # pokeBot.send_image("Pokemon Images/" + fileToPaste)
+            # pokemonName = fileToPaste.partition('.')[0]
+            # time.sleep(3)
             
+        
+        
+        # if pokeBot.pokemon_flee_counter > 30:
+            # message_box.click()
+            # pokeBot.actions.send_keys(pokemonName.capitalize(), " has fled!")
+            # pokeBot.actions.send_keys(Keys.RETURN)
+            # pokeBot.actions.perform()
+            # pokeBot.actions = 4 #Most hacky way to reset action chain
+            # pokeBot.actions = ActionChains(pokeBot.driver)
+            # pokeBot.pokemonCaught = True
+            # pokeBot.pokemon_flee_counter = 0
+        
         all_convo_elements = pokeBot.monitor_group_chat()
         
-        if pokeBot.pokemon_flee_counter > 30:
-            message_box.click()
-            pokeBot.actions.send_keys(pokemonName.capitalize(), " has fled!")
-            pokeBot.actions.send_keys(Keys.RETURN)
-            pokeBot.actions.perform()
-            pokeBot.actions = 4 #Most hacky way to reset action chain
-            pokeBot.actions = ActionChains(pokeBot.driver)
-            pokeBot.pokemonCaught = True
-            pokeBot.pokemon_flee_counter = 0
-                        
         convo_elements = all_convo_elements[0]
         likes_dictionary_list = all_convo_elements[1]
-        if convo_elements[-1] != pokeBot.last_message:
-            #bot.actions.send_keys(Keys.SPACE).perform()
-            pokeBot.pokemon_flee_counter += 1
-            if pokeBot.last_message in convo_elements: #If the last message is still visible in convo
-                logger.info("Last message visible, should be on subsequent loads")
-                new_messages = convo_elements[(convo_elements.index(pokeBot.last_message)+1):] #Gets all the messages beyond the last recorded message sent
-                new_new_messages_flag = True
-            else:
-                logger.info("Last message not visible, should be on first load")
-                new_messages = convo_elements
-                new_new_messages_flag = False
-                
-            #Makes a list of usernames, type:str, that have spoken
-            last_username = ''
-            list_of_usernames_appeared = []
-            list_of_usernames_liked = []
-            for message in new_messages:
-                try:
-                #Could use message["text"], but want reply headers to show up differently from usernames
-                #unidecode(str()) strips out the emojis
-                    logger.info("Message Text: " + unidecode(str(message["element"].text))) 
-                except Exception as e:
-                    logger.error(e)
-                    logger.exception("Error: Emoji message")
-                
-                if (message["text"],) in list_of_usernames and message["type"] == "Username": 
-                    #Split the message text to get the first word in case the message is a reply
-                    list_of_usernames_appeared.append(message["text"])
-                    last_username = message["text"]
-                               
-            #Incrementing the count of times someone had a comment with 4+ likes
-            for like in likes_dictionary_list:
-                if like["element"] not in already_liked:
-                    list_of_usernames_liked.append(like["owner"])
-                    already_liked.append(like["element"]) 
+        try:
+            if convo_elements[-1] != pokeBot.last_message:
+                #bot.actions.send_keys(Keys.SPACE).perform()
+                #pokeBot.pokemon_flee_counter += 1
+                if pokeBot.last_message in convo_elements: #If the last message is still visible in convo
+                    logger.info("Last message visible, should be on subsequent loads")
+                    new_messages = convo_elements[(convo_elements.index(pokeBot.last_message)+1):] #Gets all the messages beyond the last recorded message sent
+                    new_new_messages_flag = True
+                else:
+                    logger.info("Last message not visible, should be on first load")
+                    new_messages = convo_elements
+                    new_new_messages_flag = False
+                    
+                #Makes a list of usernames, type:str, that have spoken
+                last_username = ''
+                list_of_usernames_appeared = []
+                list_of_usernames_liked = []
+                for message in new_messages:
                     try:
-                        logger.info("Like owner message text: " + unidecode(str(like["like_owner_text"]))) 
+                    #Could use message["text"], but want reply headers to show up differently from usernames
+                    #unidecode(str()) strips out the emojis
+                        logger.info("Message Text: " + unidecode(str(message["element"].text))) 
                     except Exception as e:
                         logger.error(e)
-                        logger.exception("Error, picture")
-                                        
-            username_and_likes_dictionary_list = []
-            for username in list_of_usernames: #Get each username from the list of usernames retrieved from database. Note: it'll be a tuple of one element
-                username_and_likes_dictionary = {
-                    "Likes" : list_of_usernames_liked.count(username[0]),
-                    "Username" : username[0],
-                    "Appearances" : list_of_usernames_appeared.count(username[0]),            
-                }
-                username_and_likes_dictionary_list.append(username_and_likes_dictionary)
-                 
-            
-            #logger.info("List_of_usernames_liked: ")
-            #logger.info(list_of_usernames_liked)
-            username_and_likes_dictionary_tuple = tuple(username_and_likes_dictionary_list)
-            with conn:
-                c.executemany("UPDATE groupChatUsernameFrequency SET Appearances = Appearances + :Appearances WHERE Username = :Username", 
-                    username_and_likes_dictionary_tuple)
-                c.executemany("UPDATE groupChatUsernameFrequency SET Likes = Likes + :Likes WHERE Username = :Username", 
-                    username_and_likes_dictionary_tuple)
-                
+                        logger.exception("Error: Emoji message")
                     
-            pokeBot.last_message = convo_elements[-1]
-           
-            for message in new_messages:
-                if message["text"] == "good evening everyoNe" and new_new_messages_flag:
-                    logger.info("Exiting")
-                    pokeBot.driver.close()
-                    quit()
+                    if (message["text"],) in list_of_usernames and message["type"] == "Username": 
+                        #Split the message text to get the first word in case the message is a reply
+                        list_of_usernames_appeared.append(message["text"])
+                        last_username = message["text"]
+                                   
+                #Incrementing the count of times someone had a comment with 4+ likes
+                for like in likes_dictionary_list:
+                    if like["element"] not in already_liked:
+                        list_of_usernames_liked.append(like["owner"])
+                        already_liked.append(like["element"]) 
+                        try:
+                            logger.info("Like owner message text: " + unidecode(str(like["like_owner_text"]))) 
+                        except Exception as e:
+                            logger.error(e)
+                            logger.exception("Error, picture")
+                                            
+                username_and_likes_dictionary_list = []
+                for username in list_of_usernames: #Get each username from the list of usernames retrieved from database. Note: it'll be a tuple of one element
+                    username_and_likes_dictionary = {
+                        "Likes" : list_of_usernames_liked.count(username[0]),
+                        "Username" : username[0],
+                        "Appearances" : list_of_usernames_appeared.count(username[0]),            
+                    }
+                    username_and_likes_dictionary_list.append(username_and_likes_dictionary)
+                     
                 
-            new_messages = []
+                #logger.info("List_of_usernames_liked: ")
+                #logger.info(list_of_usernames_liked)
+                username_and_likes_dictionary_tuple = tuple(username_and_likes_dictionary_list)
+                with conn:
+                    c.executemany("UPDATE groupChatUsernameFrequency SET Appearances = Appearances + :Appearances WHERE Username = :Username", 
+                        username_and_likes_dictionary_tuple)
+                    c.executemany("UPDATE groupChatUsernameFrequency SET Likes = Likes + :Likes WHERE Username = :Username", 
+                        username_and_likes_dictionary_tuple)
+                    
+                pokeBot.log_all_gc_messages()        
+                pokeBot.last_message = convo_elements[-1]
+               
+                for message in new_messages:
+                    if message["text"] == "good evening everyoNe" and new_new_messages_flag:
+                        logger.info("Exiting")
+                        pokeBot.driver.close()
+                        quit()
+                    
+                new_messages = []
+        except Exception as e:
+            logger.info("another weird bug")
+            logger.exception(e)
         
         
         #Update web page 
