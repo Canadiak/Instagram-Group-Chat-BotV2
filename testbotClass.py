@@ -88,11 +88,28 @@ class TestBot:
         self.navigate_to_insta_inbox()
         self.navigate_to_group_chat()
         
+        #self.set_comments_to_zero()
         #Track the number of comments
         with conn:
             c.execute("SELECT * FROM comments")
             comment_list = c.fetchall()
         self.num_of_comments = len(comment_list)
+        
+        #Insert start time stamp
+        start_time = datetime.now()
+        start_timestamp = start_time.strftime("%d/%m/%Y %H:%M:%S")
+        # It's a list because insert_username_and_timestamp_into_firebase() takes a list as an argument.
+        testbot_activity_to_insert = [("Testbot", "Start_Time", start_timestamp)] 
+        with conn:
+            c.execute("INSERT INTO comments(Username,Comment,Timestamp) VALUES(?,?,?)", 
+                    testbot_activity_to_insert[0]) 
+                    
+        self.insert_username_and_timestamp_into_firebase(testbot_activity_to_insert)
+        self.num_of_comments += 1
+        
+        
+        
+        
         
     def login(self):
         """Navigates to Instagram and logs in."""      
@@ -143,6 +160,8 @@ class TestBot:
             self.navigate_to_insta_inbox()
             self.navigate_to_group_chat()
             
+        time.sleep(1)
+        
     def navigate_to_insta_inbox(self):
         """
         Navigates to Instagram inbox after being logged in. 
@@ -265,9 +284,7 @@ class TestBot:
         actual_reply_username_xpath = "(" + ancestor_of_specific_reply_xpath + generic_username_xpath + ")[last()]" 
         
         return actual_reply_username_xpath
-        
-    
-    
+            
     def find_username_from_message(self, message):
         """
         Returns the string username of the person who sent the message.
@@ -368,6 +385,21 @@ class TestBot:
         for message in messages:                    
             username = self.find_username_from_message(message)
             list_of_messages_and_usernames_and_timestamp.append((username, message.text, timestamp))
+            
+            #Quit sequence
+            if message.text == "!quit" and username == "jeremy.downey":
+                logger.info("Exiting")
+                self.driver.close()
+                quit_time = datetime.now()
+                quit_timestamp = quit_time.strftime("%d/%m/%Y %H:%M:%S")
+                # It's a list because insert_username_and_timestamp_into_firebase() takes a list as an argument.
+                testbot_activity_to_insert = [("Testbot", "Quit_Time", quit_timestamp)] 
+                with conn:
+                    c.execute("INSERT INTO comments(Username,Comment,Timestamp) VALUES(?,?,?)", 
+                            testbot_activity_to_insert[0]) 
+                            
+                self.insert_username_and_timestamp_into_firebase(testbot_activity_to_insert)
+                quit()
         
         if self.last_message_and_username_tuple == '':
             message_list = list_of_messages_and_usernames_and_timestamp
@@ -376,10 +408,9 @@ class TestBot:
             logger.debug(list_of_messages_and_usernames_and_timestamp)
             logger.debug("self.last_message_and_username_tuple: ")
             logger.debug(self.last_message_and_username_tuple)
-            # TODO: Look into just including timestamp too? That seems easier and much less error prone
+            # Cannot include timestamp, because timestamp will be different each new round
             # Gets index so only messages after that index in the message/username/timestamp list are uploaded
-            #index = self.return_index_of_value_in_list_of_tuples(list_of_messages_and_usernames_and_timestamp, self.last_message_and_username_tuple)
-            index = list_of_messages_and_usernames_and_timestamp.index(last_message_tuple)
+            index = self.return_index_of_value_in_list_of_tuples(list_of_messages_and_usernames_and_timestamp, self.last_message_and_username_tuple)
             message_list = list_of_messages_and_usernames_and_timestamp[index+1:]
             
         logger.info("Message_list: " )
@@ -391,7 +422,7 @@ class TestBot:
 
             
         if message_list != []:
-            self.last_message_tuple = message_list[-1]
+            self.last_message_and_username_tuple = (message_list[-1][0], message_list[-1][1])
         
         with conn:
             c.executemany("INSERT INTO comments(Username,Comment,Timestamp) VALUES(?,?,?)", 
@@ -445,7 +476,23 @@ class TestBot:
         #logger.info(recordsDict)
         comments_ref.set(recordsDict)
 
-  
+    def return_index_of_value_in_list_of_tuples(self, list_of_tuples, tuple_of_values):
+        """
+        Returns an index in the list of tuples where the first tuple whose [0] and [1] values are the same as the tuple of values.
+        
+        Args:
+            list_of_tuples (list[(str, str, str)]): This is used for the comment/username/timestamp list.
+            tuple_of_values (tuple[str, str]): This is used as the last username/message combo.
+        Returns:
+            index (int): The index of where the tuple of values is found in the list.
+        """
+        for index, tuple in enumerate(list_of_tuples):
+            if tuple[0] == tuple_of_values[0] and tuple[1] == tuple_of_values[1]:
+                return index
+    
+        # Matches behavior of list.index
+        raise ValueError("list.index(x): x not in list")
+        
     def refresh_insta_chat(self):
         """Refreshes Instagram and navigates back to the group chat."""
         
