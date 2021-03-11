@@ -36,8 +36,7 @@ logger.addHandler(file_handler)
 logger.addHandler(stream_handler)
 
 
-conn = sqlite3.connect('groupchatDatabase.db')
-c = conn.cursor()
+
 
 cred = credentials.Certificate("fir-hosting-test-78ed2-firebase-adminsdk-ojcxp-e2e3a882ed.json")
 default_app = firebase_admin.initialize_app(cred, {
@@ -51,7 +50,7 @@ class Error_True_Username_Element_Class():
 
 class TestBot: 
     
-    def __init__(self, username: str, password: str, group_chat_to_monitor: str):
+    def __init__(self, username: str, password: str, group_chat_to_monitor: str, database_to_connect: str):
         """
         Initializes an instance of the TestBot class. 
         
@@ -75,6 +74,10 @@ class TestBot:
                                                    but is close enough as a solution.
         """ 
         
+        self.database_name = database_to_connect
+        self.conn = sqlite3.connect(database_to_connect + ".db")
+        self.c = self.conn.cursor()
+        
         self.username = username
         self.password = password
         self.group_chat_to_monitor = group_chat_to_monitor       
@@ -83,16 +86,18 @@ class TestBot:
         self.actions = ActionChains(self.driver) 
         self.last_message = ''
         self.last_message_and_username_tuple = ''
+        self.new_messages_flag = False
         
         self.login()
         self.navigate_to_insta_inbox()
         self.navigate_to_group_chat()
         
-        #self.set_comments_to_zero()
+        self.list_of_usernames = self.get_list_of_insta_usernames()
+        self.set_comments_to_zero()
         #Track the number of comments
-        with conn:
-            c.execute("SELECT * FROM comments")
-            comment_list = c.fetchall()
+        with self.conn:
+            self.c.execute("SELECT * FROM comments")
+            comment_list = self.c.fetchall()
         self.num_of_comments = len(comment_list)
         
         #Insert start time stamp
@@ -100,8 +105,8 @@ class TestBot:
         start_timestamp = start_time.strftime("%d/%m/%Y %H:%M:%S")
         # It's a list because insert_username_and_timestamp_into_firebase() takes a list as an argument.
         testbot_activity_to_insert = [("Testbot", "Start_Time", start_timestamp)] 
-        with conn:
-            c.execute("INSERT INTO comments(Username,Comment,Timestamp) VALUES(?,?,?)", 
+        with self.conn:
+            self.c.execute("INSERT INTO comments(Username,Comment,Timestamp) VALUES(?,?,?)", 
                     testbot_activity_to_insert[0]) 
                     
         self.insert_username_and_timestamp_into_firebase(testbot_activity_to_insert)
@@ -382,25 +387,14 @@ class TestBot:
         timestamp = now.strftime("%d/%m/%Y %H:%M:%S")
         list_of_messages_and_usernames_and_timestamp = []
                
-        for message in messages:                    
-            username = self.find_username_from_message(message)
-            list_of_messages_and_usernames_and_timestamp.append((username, message.text, timestamp))
+        for message in messages:    
+            try:
+                username = self.find_username_from_message(message)
+                list_of_messages_and_usernames_and_timestamp.append((username, message.text, timestamp))
+            except Exception as e: 
+                logger.error(e)
+                logger.info("Probably someone unsent a message")
             
-            #Quit sequence
-            if message.text == "!quit" and username == "jeremy.downey":
-                logger.info("Exiting")
-                self.driver.close()
-                quit_time = datetime.now()
-                quit_timestamp = quit_time.strftime("%d/%m/%Y %H:%M:%S")
-                # It's a list because insert_username_and_timestamp_into_firebase() takes a list as an argument.
-                testbot_activity_to_insert = [("Testbot", "Quit_Time", quit_timestamp)] 
-                with conn:
-                    c.execute("INSERT INTO comments(Username,Comment,Timestamp) VALUES(?,?,?)", 
-                            testbot_activity_to_insert[0]) 
-                            
-                self.insert_username_and_timestamp_into_firebase(testbot_activity_to_insert)
-                quit()
-        
         if self.last_message_and_username_tuple == '':
             message_list = list_of_messages_and_usernames_and_timestamp
         else:
@@ -410,7 +404,13 @@ class TestBot:
             logger.debug(self.last_message_and_username_tuple)
             # Cannot include timestamp, because timestamp will be different each new round
             # Gets index so only messages after that index in the message/username/timestamp list are uploaded
-            index = self.return_index_of_value_in_list_of_tuples(list_of_messages_and_usernames_and_timestamp, self.last_message_and_username_tuple)
+            
+            try:
+                index = self.return_index_of_value_in_list_of_tuples(list_of_messages_and_usernames_and_timestamp, self.last_message_and_username_tuple)
+            except Exception as e: 
+                logger.error(e)
+                logger.info("Probably someone unsent a message") # Make index the last message to be careful to avoid repeat logging
+                index = -1
             message_list = list_of_messages_and_usernames_and_timestamp[index+1:]
             
         logger.info("Message_list: " )
@@ -424,15 +424,68 @@ class TestBot:
         if message_list != []:
             self.last_message_and_username_tuple = (message_list[-1][0], message_list[-1][1])
         
-        with conn:
-            c.executemany("INSERT INTO comments(Username,Comment,Timestamp) VALUES(?,?,?)", 
+        if self.new_messages_flag:
+            for message in message_list:
+                #Quit sequence
+                if message[1] == "!quit" and message[0] == "jeremy.downey" and self.new_messages_flag:
+                    logger.info("Exiting")
+                    self.driver.close()
+                    quit_time = datetime.now()
+                    quit_timestamp = quit_time.strftime("%d/%m/%Y %H:%M:%S")
+                    # It's a list because insert_username_and_timestamp_into_firebase() takes a list as an argument.
+                    testbot_activity_to_insert = [("Testbot", "Quit_Time", quit_timestamp)] 
+                    with self.conn:
+                        self.c.execute("INSERT INTO comments(Username,Comment,Timestamp) VALUES(?,?,?)", 
+                                testbot_activity_to_insert[0]) 
+                                
+                    self.insert_username_and_timestamp_into_firebase(testbot_activity_to_insert)
+                    quit()
+                
+        self.new_messages_flag = True
+        
+        with self.conn:
+            self.c.executemany("INSERT INTO comments(Username,Comment,Timestamp) VALUES(?,?,?)", 
                 message_list) # The other method of python->sqlite requires a dictionary, I don't think it needs to be bothered with here.
             self.num_of_comments += len(message_list)
-            
+        
+        print("Message list:")
+        try:
+            print(message_list)          
+        except Exception as e:
+            logger.error(e)
+        
         try:
             self.insert_username_and_timestamp_into_firebase(message_list)
         except Exception as e:
+            logger.info("Something went wrong with inserting")
             logger.error(e)
+        
+        #Count of messages
+        logger.info("Check1")
+        usernames_and_message_counts = []
+        for username in self.list_of_usernames: #Get each username from the list of usernames retrieved from database. Note: it'll be a tuple of one element
+            #logger.info("Username: " + username[0])
+            #logger.info("Count: ")
+            #logger.info(self.count_num_messages(message_list, username[0]))
+            username_and_message_count = {
+                "Username" : username[0],
+                "Messages" : self.count_num_messages(message_list, username[0])            
+            }
+            usernames_and_message_counts.append(username_and_message_count)
+             
+        
+        username_and_message_count_tuple = tuple(usernames_and_message_counts)
+        print("username_and_message_count_tuple:")
+        try:
+            print(username_and_message_count_tuple)           
+        except Exception as e:
+            logger.error(e)
+        
+        with self.conn:
+            self.c.executemany("UPDATE numberOfComments SET NumOfComments = NumOfComments + :Messages WHERE Username = :Username", 
+                username_and_message_count_tuple)
+                 
+        self.set_RTDB_match_sql_comment_count()
             
     def insert_username_and_timestamp_into_firebase(self, username_timestamp_tuple_list):
         """
@@ -457,7 +510,7 @@ class TestBot:
             logger.info('Something went wrong with making JSON for comments')
             logger.info(e)
         
-        comments_ref = db.reference("CommentTimestampLog")
+        comments_ref = db.reference(self.database_name + "/CommentTimestampLog")
         #comments_ref.push(recordsDict)
         #logger.info(recordsDict)
         # May want to use Push() instead, idk
@@ -466,14 +519,20 @@ class TestBot:
     def set_comments_to_zero(self):
         """Sets the comments in the sqlite and the firebase databases to empty."""
         
-        with conn:
-                c.execute("DELETE FROM comments;")   
+        with self.conn:
+                self.c.execute("DELETE FROM comments;")   
+                
+        for username in self.list_of_usernames:
+            with self.conn:
+                self.c.execute("UPDATE numberOfComments SET NumOfComments = :zero WHERE Username = :Username", 
+                         {'zero': 0, 'Username':username[0]}) 
 
         recordsDict = {"CommentTimestampLog" : {}}
                 
         
-        comments_ref = db.reference("CommentTimestampLog")
-        #logger.info(recordsDict)
+        comments_ref = db.reference(self.database_name + "/Members")
+        comments_ref.set(recordsDict)
+        comments_ref = db.reference(self.database_name + "/CommentTimestampLog")
         comments_ref.set(recordsDict)
 
     def return_index_of_value_in_list_of_tuples(self, list_of_tuples, tuple_of_values):
@@ -492,13 +551,55 @@ class TestBot:
     
         # Matches behavior of list.index
         raise ValueError("list.index(x): x not in list")
+    
+    def count_num_messages(self, list_of_messages, username):
+        """
+        Returns the count of how many times username is in list of messages.
         
+        Args:
+            list_of_messages (list[(str, str, str)]): This is used for the comment/username/timestamp list.
+            username (str): The username we're looking for.
+        Returns:
+            count (int): The number of times the username is in the list.
+        """
+        count = 0
+        for tuple in list_of_messages:
+            if tuple[0] == username:
+                count += 1
+        
+        return count
+    
     def refresh_insta_chat(self):
         """Refreshes Instagram and navigates back to the group chat."""
-        
+        logger.info("Refreshing")
         self.driver.refresh()
-        self.navigate_to_group_chat(self.group_chat_to_monitor)
+        self.navigate_to_group_chat()
         # return the last message on the refresh page as the point to start counting from
         self.driver.switch_to.window(self.driver.current_window_handle)
         
+    def get_list_of_insta_usernames(self):
+        """
+        Returns the list of insta usernames as a list of tuples of one element
+        """
+        self.c.execute("SELECT Username FROM numberOfComments WHERE Username IS NOT NULL") #Get all the username's in instagramData
+        #print(c.fetchall())
+        return self.c.fetchall()
         
+    def set_RTDB_match_sql_comment_count(self):
+        self.c.execute("SELECT Username, NumOfComments FROM numberOfComments") 
+        wholeInstaTable = self.c.fetchall()
+        
+        recordsDict = {}
+        try:
+            for record in wholeInstaTable:
+                recordsDict[record[0].replace('.', ',')] = {
+                   'Message_Count' : record[1],
+                   'Username' : record[0].replace('.', ','),\
+                }
+        except Exception as e:
+            logger.info('Something went wrong with making JSON')
+            logger.info(e)
+        
+        members_ref = db.reference(self.database_name + "/Members")
+        #logger.info(recordsDict)
+        members_ref.set(recordsDict)

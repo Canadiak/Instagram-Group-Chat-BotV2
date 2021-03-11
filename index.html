@@ -14,8 +14,12 @@
         <link rel="shortcut icon" href="Porygon.png" />
     </head>
     <body>
-    
-        
+        <script>function example1() {
+            window.location.href = '../graphs.html';           
+        }
+        </script>
+        <h3>Site 1</h3>
+        <div><button onclick="example1()" class="vibrateButton" >Navigate to Graph Page </button></div>
     
         <h1>Groupchat Activity</h1>
 
@@ -27,10 +31,7 @@
                 <thead>
                     <th>Rank</th>
                     <th class="header-sortable">Username</th>
-                    <th class="header-sortable">Appearances</th>
-                    <th class="header-sortable">4+ Likes Received</th>
-                    <th class="header-sortable">Pokemon</th>
-                    <th class="header-sortable">Number of Pokemon</th>
+                    <th class="header-sortable">Messages</th>
                 </thead>
                 <tbody id="activity-table-body">
                 
