@@ -78,6 +78,10 @@ class TestBot:
         self.conn = sqlite3.connect(database_to_connect + ".db")
         self.c = self.conn.cursor()
         
+        self.list_of_usernames = self.get_list_of_insta_usernames()
+        
+        
+        
         self.username = username
         self.password = password
         self.group_chat_to_monitor = group_chat_to_monitor       
@@ -87,18 +91,18 @@ class TestBot:
         self.last_message = ''
         self.last_message_and_username_tuple = ''
         self.new_messages_flag = False
-        
+        self.loop_counter = 0
         self.login()
         self.navigate_to_insta_inbox()
         self.navigate_to_group_chat()
         
-        self.list_of_usernames = self.get_list_of_insta_usernames()
+        
         self.set_comments_to_zero()
         #Track the number of comments
         with self.conn:
             self.c.execute("SELECT * FROM comments")
             comment_list = self.c.fetchall()
-        self.num_of_comments = len(comment_list)
+        self.num_of_comments = max(len(comment_list), 1)
         
         #Insert start time stamp
         start_time = datetime.now()
@@ -111,11 +115,7 @@ class TestBot:
                     
         self.insert_username_and_timestamp_into_firebase(testbot_activity_to_insert)
         self.num_of_comments += 1
-        
-        
-        
-        
-        
+                
     def login(self):
         """Navigates to Instagram and logs in."""      
         
@@ -133,8 +133,7 @@ class TestBot:
         except Exception as e:
             logger.error(e)
             logger.exception("Log in failed")
-            #self.driver.quit()   
-            
+            #self.driver.quit()              
     def navigate_to_group_chat(self): 
         """Navigates to a group chat from the Instagram inbox."""
         
@@ -154,9 +153,7 @@ class TestBot:
             logger.exception("Clicking Not Now button failed")
             
         try:
-            element = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.PARTIAL_LINK_TEXT, self.group_chat_to_monitor))
-            )
+            time.sleep(5)
             group_chat = self.driver.find_element_by_partial_link_text(self.group_chat_to_monitor)
             group_chat.click()
         except Exception as e:
@@ -164,6 +161,9 @@ class TestBot:
             logger.exception("Error, unable to navigate to group chat")
             self.navigate_to_insta_inbox()
             self.navigate_to_group_chat()
+            self.loop_counter += 1
+            if self.loop_counter > 3:
+                self.quit_process()
             
         time.sleep(1)
         
@@ -321,37 +321,31 @@ class TestBot:
         weird_error = False
         username_element_exists = False
         username_reply_element_exists = False
+        
         try:
-            try:
-                username_element = self.driver.find_element_by_xpath(username_xpath)
-                username_element_exists = True
-            except Exception as e:
-                #logger.debug(e) #this is annoying, since about half the time it will appear
-                #logger.info("username_element does not exist")
-                pass
-                
-            try:
-                username_reply_element = self.driver.find_element_by_xpath(username_reply_xpath)
-                username_reply_element_exists = True
-            except Exception as e:
-                #logger.debug(e) #this is annoying, since about half the time it will appear
-                #logger.info("username_reply_element does not exist")  
-                pass
-            
+            username_element = self.driver.find_element_by_xpath(username_xpath)
+            username_element_exists = True
         except Exception as e:
-            logger.info("The weird bug")
-            weird_error = True
-            logger.error(e)
+            #logger.debug(e) #this is annoying, since about half the time it will appear
+            #logger.info("username_element does not exist")
+            pass
+            
+        try:
+            username_reply_element = self.driver.find_element_by_xpath(username_reply_xpath)
+            username_reply_element_exists = True
+        except Exception as e:
+            #logger.debug(e) #this is annoying, since about half the time it will appear
+            #logger.info("username_reply_element does not exist")  
+            pass
             
         
-        if weird_error: #act like no one submitted it correctly if the weird error occurs
-            print( 'Error with xpath finding')
-            quit()
+            
         
         true_username_containing_element = ''
         if not username_element_exists and not username_reply_element_exists:
+            logger.info("Message that could not be found: ")
+            logger.info(message.text)
             logger.error("This should not happen, but sometimes does anyways. Problem with how insta displays names.")
-            # quit()
             true_username_element = Error_True_Username_Element_Class()
         elif not username_element_exists:
             true_username_element = username_reply_element
@@ -370,7 +364,26 @@ class TestBot:
             usernamer = true_username_element.text
         
         return usernamer
-    
+
+    def get_changed_gc_name(self):
+        """Changes self.group_chat_to_monitor to the new name if the gc name is changed."""
+        name_change_class_list = ["_7UhW9", "PIoXz", "qyrsm","_0PwGv", "se6yk"]
+        name_change_contains_string = self.make_xpath_contains_string(name_change_class_list)
+        name_change_xpath = "//span[" + name_change_contains_string + "]"
+        
+        try:
+            name_changes = self.driver.find_elements_by_xpath(name_change_xpath);
+            if 8 > len(name_changes[-1].text):
+                new_name = name_changes[-1].text
+            else:
+                new_name = name_changes[-1].text[0:9]
+                
+            logger.info("New name: ")
+            logger.info(new_name)
+            self.group_chat_to_monitor = new_name
+        except:
+            pass
+        
     def log_all_gc_messages(self):
         """Actually gets all the elements in the groupchat and logs the new messages."""
         logger.info("Finding messages")
@@ -428,18 +441,7 @@ class TestBot:
             for message in message_list:
                 #Quit sequence
                 if message[1] == "!quit" and message[0] == "jeremy.downey" and self.new_messages_flag:
-                    logger.info("Exiting")
-                    self.driver.close()
-                    quit_time = datetime.now()
-                    quit_timestamp = quit_time.strftime("%d/%m/%Y %H:%M:%S")
-                    # It's a list because insert_username_and_timestamp_into_firebase() takes a list as an argument.
-                    testbot_activity_to_insert = [("Testbot", "Quit_Time", quit_timestamp)] 
-                    with self.conn:
-                        self.c.execute("INSERT INTO comments(Username,Comment,Timestamp) VALUES(?,?,?)", 
-                                testbot_activity_to_insert[0]) 
-                                
-                    self.insert_username_and_timestamp_into_firebase(testbot_activity_to_insert)
-                    quit()
+                    self.quit_process()
                 
         self.new_messages_flag = True
         
@@ -475,18 +477,18 @@ class TestBot:
              
         
         username_and_message_count_tuple = tuple(usernames_and_message_counts)
-        print("username_and_message_count_tuple:")
-        try:
-            print(username_and_message_count_tuple)           
-        except Exception as e:
-            logger.error(e)
+        
         
         with self.conn:
             self.c.executemany("UPDATE numberOfComments SET NumOfComments = NumOfComments + :Messages WHERE Username = :Username", 
                 username_and_message_count_tuple)
                  
         self.set_RTDB_match_sql_comment_count()
-            
+        try:
+            self.get_changed_gc_name()
+        except Exception as e:
+            pass
+        
     def insert_username_and_timestamp_into_firebase(self, username_timestamp_tuple_list):
         """
         Inserts into firebase the list of usernames and timestamps.
@@ -533,8 +535,13 @@ class TestBot:
         comments_ref = db.reference(self.database_name + "/Members")
         comments_ref.set(recordsDict)
         comments_ref = db.reference(self.database_name + "/CommentTimestampLog")
-        comments_ref.set(recordsDict)
-
+        comments_ref.set({
+                    'comment_num_1': {
+                        'filler': 'filler',
+                        
+                    },
+                })
+        
     def return_index_of_value_in_list_of_tuples(self, list_of_tuples, tuple_of_values):
         """
         Returns an index in the list of tuples where the first tuple whose [0] and [1] values are the same as the tuple of values.
@@ -603,3 +610,18 @@ class TestBot:
         members_ref = db.reference(self.database_name + "/Members")
         #logger.info(recordsDict)
         members_ref.set(recordsDict)
+        
+    def quit_process(self):
+        logger.info("Quitting!")
+        quit_time = datetime.now()
+        quit_timestamp = quit_time.strftime("%d/%m/%Y %H:%M:%S")
+        # It's a list because insert_username_and_timestamp_into_firebase() takes a list as an argument.
+        testbot_activity_to_insert = [("Testbot", "Quit_Time", quit_timestamp)] 
+        with self.conn:
+            self.c.execute("INSERT INTO comments(Username,Comment,Timestamp) VALUES(?,?,?)", 
+                    testbot_activity_to_insert[0]) 
+                    
+        self.insert_username_and_timestamp_into_firebase(testbot_activity_to_insert)
+        self.driver.close()
+        quit()
+               

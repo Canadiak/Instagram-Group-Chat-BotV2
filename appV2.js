@@ -44,13 +44,17 @@ const activityTable = document.querySelector('#activity-table-body');
 //create references
 
 var dbRefObject = database.ref("groupchatDatabase/Members");
-lastSortedColumn = 2;
+let lastSortedColumn = 2;
 // Reference the object when a value changes. Then provide the snapshot
+let chartExists = false;
+let activityGraph = {};
+let data = {};
+let arrayOfMembersStored = {};
 dbRefObject.on('value', (snapshot) => {
     removeAllChildNodes(activityTable);
-    memberList = snapshot.val();
-    arrayOfMembers = turnObjectIntoArray(memberList);
-    sortedArray = sortMemberListArray(arrayOfMembers, "Appearances");
+    let memberList = snapshot.val();
+    let arrayOfMembers = turnObjectIntoArray(memberList);
+    let sortedArray = sortMemberListArray(arrayOfMembers, "Message_Count");
     
     for (let index = (sortedArray.length-1);  index >= 0; index--){
         
@@ -59,6 +63,14 @@ dbRefObject.on('value', (snapshot) => {
     }
     
     sortTableByColumn(activityTable.parentElement, lastSortedColumn);
+    data = createData(arrayOfMembers);
+    
+    if (!chartExists){
+        arrayOfMembersStored = arrayOfMembers;
+        activityGraph = new Chart(myChart, data);
+        chartExists = true; 
+    }
+    
 });
 
 function turnObjectIntoArray(object){
@@ -78,23 +90,6 @@ function sortMemberListArray(array, arrayField){
     array.sort(function(a, b){return a[arrayField] - b[arrayField]});
     return array;
 }
-/* function countMessagesPerUsername(messages){
-
-
-    for (let subObject in messages){
-        if (messages[subObject]["Username"] in dict_of_usernames){
-            dict_of_usernames[messages[subObject]["Username"]] = 0;
-        }
-    }
-    
-    for (let subObject in messages){
-        if (messages[subObject]["Username"] in dict_of_usernames){
-            dict_of_usernames[messages[subObject]["Username"]]++;
-        }
-    }
-    
-    
-} */
 
 
 
@@ -126,7 +121,6 @@ function removeAllChildNodes(parent) {
 
 
 function sortTableByColumn(table, column, asc = true) {
-    console.log("Check");
     const dirModifier = asc ? 1 : -1;
     const tBody = table.tBodies[0];
     const rows = Array.from(tBody.querySelectorAll("tr"));
@@ -136,9 +130,6 @@ function sortTableByColumn(table, column, asc = true) {
         var aColText = a.querySelector(`td:nth-child(${ column + 1 })`).textContent.trim();
         var bColText = b.querySelector(`td:nth-child(${ column + 1 })`).textContent.trim();
 
-        console.log(aColText);
-        console.log(bColText);
-        console.log(aColText > bColText);
         if (!isNaN(aColText)){
            aColText = -1*parseInt(aColText);
            bColText = -1*parseInt(bColText);
@@ -152,9 +143,8 @@ function sortTableByColumn(table, column, asc = true) {
        
        return aColText > bColText ? (1 * dirModifier) : (-1 * dirModifier);
     });
-    console.log(sortedRows); 
     
-    console.log(sortedRows);
+    //console.log(sortedRows);
     //Remove all existing TRs from the table
     while (tBody.firstChild){
         tBody.removeChild(tBody.firstChild);
@@ -213,3 +203,122 @@ document.querySelectorAll(".table-sortable .header-sortable").forEach(headerCell
     });
 
 }); 
+
+
+//      -------------      //
+//      MY CHART CODE      //
+//      -------------      //
+
+
+var myChart = document.getElementById('myChart').getContext('2d');
+
+//Global Options
+Chart.defaults.global.defaultFontFamily ='Lato';
+Chart.defaults.global.defaultFontSize = 18;
+Chart.defaults.global.defaultFontColor = '#777';
+
+function compareNumOfMessages(messages, numToCompare){
+    
+    
+}
+
+function createData (rawData){
+    
+    num_of_comments_list = [];
+    names_list = [];
+    colour_list = [];
+    console.log("Raw data: ");
+    console.log(rawData);
+    sumOfMessages = 0;
+    rawData.forEach(item => {
+        sumOfMessages += item["Message_Count"];
+    });
+    
+    numUsers = document.querySelector(".numUserDisplayInput").value;
+    console.log("numUsers:");
+    console.log(numUsers);
+    rawDataFiltered = rawData.filter((datum , index) => (30-numUsers < index)); 
+    
+    rawDataFiltered.forEach((item, index) => {
+        console.log(item);
+        names_list.push(item["Username"].replace(/,/g, "."));
+        num_of_comments_list.push(item["Message_Count"]);
+        hue = index * (360/rawDataFiltered.length);
+        colour_list.push(`hsla(${hue}, 70%, 70%, 0.8`);
+    });
+    
+    formattedData = {
+    
+        type: 'bar', //bar, horizontalBar, pie, line, doughnut, radar, polarArea
+        
+        data: {
+            labels: names_list,
+            datasets:[{
+                label:"Number of Messages",
+                data: num_of_comments_list,
+                //backgroundColor:'green'
+                backgroundColor: colour_list,
+                borderWidth: 1,
+                borderColor:'#777',
+                hoverBorderWidth: 3,
+                hoverBorderColor: '#FFF',
+            }],
+        },
+        options: {
+            scales: {
+                yAxes: [{
+                    ticks: {
+                        beginAtZero: true
+                    }
+                }]
+            }
+        },
+    }
+    return formattedData;
+}
+
+chartButton = document.querySelector(".chartTypeButton");
+
+chartButton.addEventListener("click", () =>{
+    console.log(activityGraph);
+    tempData = activityGraph.data;
+    tempOptions = activityGraph.options;
+    tempType = activityGraph.config.type;
+    activityGraph.destroy();
+    if (activityGraph.config.type == 'bar'){      
+        activityGraph = new Chart(myChart, {
+            type: 'doughnut',
+            data: tempData,
+        });
+        chartButton.value = "Bar chart";
+    }else{
+       activityGraph = new Chart(myChart, {
+            type: 'bar',
+            data: tempData,
+            options: {
+                scales: {
+                    yAxes: [{
+                        ticks: {
+                            beginAtZero: true
+                        }
+                    }]
+                }
+            }
+        });
+        chartButton.value = "Doughnut chart";
+    }
+});
+
+document.querySelector(".numUserDisplayInput").addEventListener("change", (event) => {
+    console.log("Check2 for arrayOfMembers");
+    let tempData = createData(arrayOfMembersStored);
+    let tempOptions = activityGraph.options;
+    let tempType = activityGraph.config.type;
+    activityGraph.destroy();
+    activityGraph = new Chart(myChart, {
+        type: tempType,
+        data: tempData.data,
+        options: tempOptions,
+    });
+        
+});
