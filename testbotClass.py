@@ -313,25 +313,17 @@ class TestBot:
         generic_message_class_list = ['_7UhW9', 'xLCgt', 'p1tLr', 'MMzan', 'KV-D4', 'hjZTB']
         generic_message_contains_string = self.make_xpath_contains_string(generic_message_class_list)
         generic_message_xpath = "//div[" + generic_message_contains_string + "]" 
-        
-        logger.info("Message innerHTML: ")
-        logger.info(message.get_attribute('innerHTML'))
-        logger.info("Message text: ")
-        logger.info(message.text)
         string_to_avoid_quotes = self.remove_quotes_for_xpath(message.text)
         #string_to_avoid_quotes = self.remove_quotes_for_xpath(message.get_attribute('innerHTML')) # testing .get_attribute
        
         # This xpath was working find until now but maybe I actually want """//*[text()[contains(., {})]]""".format(string_to_avoid_quotes)
         # I don't even know man
-        # xpath_to_message_spans = """(//span[contains(text(), {})])""".format(string_to_avoid_quotes)
-            
-        
+        # xpath_to_message_spans = """(//span[contains(text(), {})])""".format(string_to_avoid_quotes)       
         #xpath_to_message_spans = """(//span[contains(., {})])""".format(message.text)
         # """//span[text()[contains(., {})]]/ancestor-or-self::span"""
-        xpath_to_message_spans =  """//span[.={}]""".format(string_to_avoid_quotes)
-        logger.info("Xpath_to_message_spans: ")
+        xpath_to_message_spans =  """//span[.={}]""".format(string_to_avoid_quotes.replace('\n', ''))
+        logger.info("xpath_to_message_spans: ")
         logger.info(xpath_to_message_spans)
-        logger.info(" ")
         message_span_list = self.driver.find_elements_by_xpath(xpath_to_message_spans)
         # Get the most recent message, to exclude messages with same text that appear earlier.
         # Something weird was happening earlier too where message_span.text and message.text did not have to
@@ -342,13 +334,14 @@ class TestBot:
         
         # Idea: Replace xpath_to_message_spans with just getting all message spans? It'll decrease speed but it'll log more messages
         for index, message_span in enumerate(message_span_list):
-            #logger.info("message_span.get_attribute('innerHTML'): ")
-            #logger.info(message_span.get_attribute('innerHTML'))
-            #logger.info("message_span.text: ")
-            #logger.info(message_span.text)
-            if message_span.location["y"] <= message.location["y"] and message_span.get_attribute('innerHTML') == message.get_attribute('innerHTML'):
-                #logger.info("Chosen message")
-                #logger.info(message_span.get_attribute('innerHTML'))
+            if message_span.location["y"] <= message.location["y"]: # and message_span.get_attribute('innerHTML') == message.get_attribute('innerHTML')
+                logger.info("Chosen message")
+                logger.info("Inner html: ")
+                logger.info(message_span.get_attribute('innerHTML'))
+                logger.info(message.get_attribute('innerHTML'))
+                logger.info("Text: ")
+                logger.info(message_span.text)
+                logger.info(message.text)
                 target_message_span_xpath = xpath_to_message_spans + "[" +  str(index+1) + "]" #Already has () around xpath_to_message_spans
                 
                 username_xpath = self.get_sender_username_from_element_xpath(target_message_span_xpath)
@@ -381,11 +374,12 @@ class TestBot:
         
         true_username_containing_element = ''
         if not username_element_exists and not username_reply_element_exists:
-            #logger.info("Message that could not be found: ")
-            #logger.info(message.get_attribute('innerHTML'))
-            #logger.error("This should not happen, but sometimes does anyways. Problem with how insta displays names.")
-            #logger.info("Xpath to username that did not work: ")
-            #logger.info(username_xpath)
+            logger.info("Message that could not be found: ")
+            logger.info(message.get_attribute('innerHTML'))
+            logger.info(message.text)
+            logger.error("This should not happen, but sometimes does anyways. Problem with how insta displays names.")
+            logger.info("Xpath to username that did not work: ")
+            logger.info(username_xpath)
             true_username_element = Error_True_Username_Element_Class()
         elif not username_element_exists:
             true_username_element = username_reply_element
@@ -403,8 +397,6 @@ class TestBot:
             usernamer = true_username_element.text.split()[0]
         else:    
             usernamer = true_username_element.text
-        
-        logger.info(" ")
         
         return usernamer
 
@@ -469,7 +461,7 @@ class TestBot:
             except Exception as e: 
                 logger.error(e)
                 logger.info("Probably someone unsent a message") # Make index the last message to be careful to avoid repeat logging
-                index = -1
+                index = -2 # Changed from -1
             message_list = list_of_messages_and_usernames_and_timestamp[index+1:]
             
         logger.info("Message_list: " )
@@ -628,6 +620,8 @@ class TestBot:
     
     def refresh_insta_chat(self):
         """Refreshes Instagram and navigates back to the group chat."""
+        logger.info(" ")
+        logger.info(" ")
         logger.info("Refreshing")
         self.driver.refresh()
         self.navigate_to_group_chat()
@@ -646,6 +640,9 @@ class TestBot:
         timestamp = now.strftime("%d/%m/%Y %H:%M:%S")
         list_of_messages_and_usernames_and_timestamp = []
                
+               
+        logger.info("Refresh messages: ")
+        logger.info(messages)
         for message in messages:    
             try:
                 username = self.find_username_from_message(message)
@@ -656,7 +653,9 @@ class TestBot:
             
             
         message_list = list_of_messages_and_usernames_and_timestamp
-                   
+        
+        logger.info("Message list after refresh: ")
+        logger.info(message_list)
         logger.info("Last message after refresh: ")
         logger.info(message_list[-1][0])
         self.last_message_and_username_tuple = (message_list[-1][0], message_list[-1][1])
