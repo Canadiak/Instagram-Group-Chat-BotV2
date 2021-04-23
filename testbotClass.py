@@ -98,23 +98,33 @@ class TestBot:
         
         
         self.set_comments_to_zero()
-        #Track the number of comments
-        with self.conn:
-            self.c.execute("SELECT * FROM comments")
-            comment_list = self.c.fetchall()
-        self.num_of_comments = max(len(comment_list), 1)
+       
         
+        # Inset a quittime time stamp
+        # testbot_activity_to_insert = [("Testbot", "Quit_Time", "08/04/2021 16:51:19")] 
+        # with self.conn:
+            # self.c.execute("INSERT INTO comments(Username,Comment,Timestamp) VALUES(?,?,?)", 
+                    # testbot_activity_to_insert[0]) 
+                    
         #Insert start time stamp
         start_time = datetime.now()
         start_timestamp = start_time.strftime("%d/%m/%Y %H:%M:%S")
+        
         # It's a list because insert_username_and_timestamp_into_firebase() takes a list as an argument.
         testbot_activity_to_insert = [("Testbot", "Start_Time", start_timestamp)] 
         with self.conn:
             self.c.execute("INSERT INTO comments(Username,Comment,Timestamp) VALUES(?,?,?)", 
                     testbot_activity_to_insert[0]) 
-                    
-        self.insert_username_and_timestamp_into_firebase(testbot_activity_to_insert)
-        self.num_of_comments += 1
+        
+         #Track the number of comments
+        with self.conn:
+            self.c.execute("SELECT * FROM comments")
+            comment_list = self.c.fetchall()
+            
+        self.num_of_comments = len(comment_list) #+1; Don't need the plus one because I moved the len(comment_list) to after the date insert       
+         
+        self.recursive_database_insert(0, testbot_activity_to_insert)
+        # self.insert_username_and_timestamp_into_firebase(testbot_activity_to_insert)
                 
     def login(self):
         """Navigates to Instagram and logs in."""      
@@ -304,13 +314,41 @@ class TestBot:
         generic_message_contains_string = self.make_xpath_contains_string(generic_message_class_list)
         generic_message_xpath = "//div[" + generic_message_contains_string + "]" 
         
-         
+        logger.info("Message innerHTML: ")
+        logger.info(message.get_attribute('innerHTML'))
+        logger.info("Message text: ")
+        logger.info(message.text)
         string_to_avoid_quotes = self.remove_quotes_for_xpath(message.text)
-        xpath_to_message_spans = """(//span[contains(text(), {})])""".format(string_to_avoid_quotes)   
+        #string_to_avoid_quotes = self.remove_quotes_for_xpath(message.get_attribute('innerHTML')) # testing .get_attribute
+       
+        # This xpath was working find until now but maybe I actually want """//*[text()[contains(., {})]]""".format(string_to_avoid_quotes)
+        # I don't even know man
+        # xpath_to_message_spans = """(//span[contains(text(), {})])""".format(string_to_avoid_quotes)
+            
+        
+        #xpath_to_message_spans = """(//span[contains(., {})])""".format(message.text)
+        # """//span[text()[contains(., {})]]/ancestor-or-self::span"""
+        xpath_to_message_spans =  """//span[.={}]""".format(string_to_avoid_quotes)
+        logger.info("Xpath_to_message_spans: ")
+        logger.info(xpath_to_message_spans)
+        logger.info(" ")
         message_span_list = self.driver.find_elements_by_xpath(xpath_to_message_spans)
-        # Get the most recent message, to exclude messages with same text that appear earlier
+        # Get the most recent message, to exclude messages with same text that appear earlier.
+        # Something weird was happening earlier too where message_span.text and message.text did not have to
+        # equal each other to appear in message_span_list, but it worked anyways. I require them to equal now to be safe.
+        # Update: I think they should now equal each other
+        # Also doesn't work if a message has a line break which cause <br> tag
+        # Possibly fixed
+        
+        # Idea: Replace xpath_to_message_spans with just getting all message spans? It'll decrease speed but it'll log more messages
         for index, message_span in enumerate(message_span_list):
-            if message_span.location["y"] <= message.location["y"]:
+            #logger.info("message_span.get_attribute('innerHTML'): ")
+            #logger.info(message_span.get_attribute('innerHTML'))
+            #logger.info("message_span.text: ")
+            #logger.info(message_span.text)
+            if message_span.location["y"] <= message.location["y"] and message_span.get_attribute('innerHTML') == message.get_attribute('innerHTML'):
+                #logger.info("Chosen message")
+                #logger.info(message_span.get_attribute('innerHTML'))
                 target_message_span_xpath = xpath_to_message_spans + "[" +  str(index+1) + "]" #Already has () around xpath_to_message_spans
                 
                 username_xpath = self.get_sender_username_from_element_xpath(target_message_span_xpath)
@@ -343,15 +381,18 @@ class TestBot:
         
         true_username_containing_element = ''
         if not username_element_exists and not username_reply_element_exists:
-            logger.info("Message that could not be found: ")
-            logger.info(message.text)
-            logger.error("This should not happen, but sometimes does anyways. Problem with how insta displays names.")
+            #logger.info("Message that could not be found: ")
+            #logger.info(message.get_attribute('innerHTML'))
+            #logger.error("This should not happen, but sometimes does anyways. Problem with how insta displays names.")
+            #logger.info("Xpath to username that did not work: ")
+            #logger.info(username_xpath)
             true_username_element = Error_True_Username_Element_Class()
         elif not username_element_exists:
             true_username_element = username_reply_element
         elif not username_reply_element_exists: 
             true_username_element = username_element            
         else:
+            # If both a reply and an original message with the same text exist, take the most recent one
             if username_element.location["y"] > username_reply_element.location["y"]:
                 true_username_element = username_element
             else:
@@ -362,6 +403,8 @@ class TestBot:
             usernamer = true_username_element.text.split()[0]
         else:    
             usernamer = true_username_element.text
+        
+        logger.info(" ")
         
         return usernamer
 
@@ -390,7 +433,10 @@ class TestBot:
         
         message_class_list = ['_7UhW9', 'xLCgt', 'p1tLr', 'MMzan', 'KV-D4', 'hjZTB']
         message_contains_string = self.make_xpath_contains_string(message_class_list)
-        message_xpath = "//div[" + message_contains_string + "]"
+        #message_xpath = "//div[" + message_contains_string + "]"
+        
+        # Trying to get to the lower level span instead of div so links can be detected
+        message_xpath = "//div[" + message_contains_string + "]//span"
         
         excluding_reply_headers_ancestor_xpath = "//div[contains(@class, 'ZyFrc')]"
         
@@ -482,8 +528,12 @@ class TestBot:
         with self.conn:
             self.c.executemany("UPDATE numberOfComments SET NumOfComments = NumOfComments + :Messages WHERE Username = :Username", 
                 username_and_message_count_tuple)
-                 
-        self.set_RTDB_match_sql_comment_count()
+        
+        try:         
+            self.set_RTDB_match_sql_comment_count()
+        except Exception as e:
+            pass
+            
         try:
             self.get_changed_gc_name()
         except Exception as e:
@@ -581,6 +631,35 @@ class TestBot:
         logger.info("Refreshing")
         self.driver.refresh()
         self.navigate_to_group_chat()
+        self.last_message_and_username_tuple = ''
+        
+        
+        message_class_list = ['_7UhW9', 'xLCgt', 'p1tLr', 'MMzan', 'KV-D4', 'hjZTB']
+        message_contains_string = self.make_xpath_contains_string(message_class_list)
+        message_xpath = "//div[" + message_contains_string + "]"
+        
+        excluding_reply_headers_ancestor_xpath = "//div[contains(@class, 'ZyFrc')]"
+        
+        messages_excluding_reply_headers_xpath = excluding_reply_headers_ancestor_xpath + message_xpath
+        messages = self.driver.find_elements_by_xpath(messages_excluding_reply_headers_xpath);
+        now = datetime.now()
+        timestamp = now.strftime("%d/%m/%Y %H:%M:%S")
+        list_of_messages_and_usernames_and_timestamp = []
+               
+        for message in messages:    
+            try:
+                username = self.find_username_from_message(message)
+                list_of_messages_and_usernames_and_timestamp.append((username, message.text, timestamp))
+            except Exception as e: 
+                logger.error(e)
+                logger.info("Probably someone unsent a message")
+            
+            
+        message_list = list_of_messages_and_usernames_and_timestamp
+                   
+        logger.info("Last message after refresh: ")
+        logger.info(message_list[-1][0])
+        self.last_message_and_username_tuple = (message_list[-1][0], message_list[-1][1])
         # return the last message on the refresh page as the point to start counting from
         self.driver.switch_to.window(self.driver.current_window_handle)
         
@@ -610,6 +689,27 @@ class TestBot:
         members_ref = db.reference(self.database_name + "/Members")
         #logger.info(recordsDict)
         members_ref.set(recordsDict)
+    
+    def recursive_database_insert(self, num_of_tries, message_list):
+        """
+        Sometimes the database is buggy and doesn't properly insert messages. This function surrounds the insert
+        in a try-except so hopefully it will. num_of_tries in case something is fucky and the program doesn't get
+        stuck repeatedly trying to insert.
+
+        Args:
+        num_of_tries (int): The number of tries it's been inserted for
+        Returns:
+        count (int): The number of times the username is in the list.
+        """
+        if (num_of_tries < 3):
+            try:
+                self.insert_username_and_timestamp_into_firebase(message_list)
+            except Exception as e:
+                logger.info("Recursive Database Exception, num_tries: " + num_of_tries)
+                logger.error(e)
+                self.recursive_database_insert(num_of_tries+1)
+        else:
+            self.quit_process()
         
     def quit_process(self):
         logger.info("Quitting!")
@@ -620,8 +720,8 @@ class TestBot:
         with self.conn:
             self.c.execute("INSERT INTO comments(Username,Comment,Timestamp) VALUES(?,?,?)", 
                     testbot_activity_to_insert[0]) 
-                    
-        self.insert_username_and_timestamp_into_firebase(testbot_activity_to_insert)
+        self.recursive_database_insert(0, testbot_activity_to_insert)         
+        #self.insert_username_and_timestamp_into_firebase(testbot_activity_to_insert)
         self.driver.close()
         quit()
                
