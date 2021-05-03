@@ -24,17 +24,10 @@ from firebase_admin import credentials
 from datetime import datetime
 from io import BytesIO
 
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s : %(name)s : %(lineno)s : %(message)s ', datefmt='%m/%d/%Y %I:%M:%S %p')
-file_handler = logging.FileHandler('bot.log', mode='w')
-file_handler.setLevel(logging.INFO)
-file_handler.setFormatter(formatter)
-stream_handler = logging.StreamHandler()
-stream_handler.setFormatter(formatter)
-logger.addHandler(file_handler)
-logger.addHandler(stream_handler)
-
 
 
 
@@ -74,6 +67,15 @@ class TestBot:
                                                    but is close enough as a solution.
         """ 
         
+        
+        file_handler = logging.FileHandler(database_to_connect + '.log', mode='w')
+        file_handler.setLevel(logging.INFO)
+        file_handler.setFormatter(formatter)
+        stream_handler = logging.StreamHandler()
+        stream_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
+        logger.addHandler(stream_handler)
+        
         self.database_name = database_to_connect
         self.conn = sqlite3.connect(database_to_connect + ".db")
         self.c = self.conn.cursor()
@@ -95,9 +97,8 @@ class TestBot:
         self.login()
         self.navigate_to_insta_inbox()
         self.navigate_to_group_chat()
-        
-        
-        self.set_comments_to_zero()
+      
+        # self.set_comments_to_zero()
        
         
         # Inset a quittime time stamp
@@ -322,8 +323,8 @@ class TestBot:
         #xpath_to_message_spans = """(//span[contains(., {})])""".format(message.text)
         # """//span[text()[contains(., {})]]/ancestor-or-self::span"""
         xpath_to_message_spans =  """//span[.={}]""".format(string_to_avoid_quotes.replace('\n', ''))
-        logger.info("xpath_to_message_spans: ")
-        logger.info(xpath_to_message_spans)
+        #logger.info("xpath_to_message_spans: ")
+        #logger.info(xpath_to_message_spans)
         message_span_list = self.driver.find_elements_by_xpath(xpath_to_message_spans)
         # Get the most recent message, to exclude messages with same text that appear earlier.
         # Something weird was happening earlier too where message_span.text and message.text did not have to
@@ -335,13 +336,13 @@ class TestBot:
         # Idea: Replace xpath_to_message_spans with just getting all message spans? It'll decrease speed but it'll log more messages
         for index, message_span in enumerate(message_span_list):
             if message_span.location["y"] <= message.location["y"]: # and message_span.get_attribute('innerHTML') == message.get_attribute('innerHTML')
-                logger.info("Chosen message")
-                logger.info("Inner html: ")
-                logger.info(message_span.get_attribute('innerHTML'))
-                logger.info(message.get_attribute('innerHTML'))
-                logger.info("Text: ")
-                logger.info(message_span.text)
-                logger.info(message.text)
+                #ogger.info("Chosen message")
+                #logger.info("Inner html: ")
+                #logger.info(message_span.get_attribute('innerHTML'))
+                #logger.info(message.get_attribute('innerHTML'))
+                #logger.info("Text: ")
+                #logger.info(message_span.text)
+                #logger.info(message.text)
                 target_message_span_xpath = xpath_to_message_spans + "[" +  str(index+1) + "]" #Already has () around xpath_to_message_spans
                 
                 username_xpath = self.get_sender_username_from_element_xpath(target_message_span_xpath)
@@ -719,6 +720,7 @@ class TestBot:
         with self.conn:
             self.c.execute("INSERT INTO comments(Username,Comment,Timestamp) VALUES(?,?,?)", 
                     testbot_activity_to_insert[0]) 
+                    
         self.recursive_database_insert(0, testbot_activity_to_insert)         
         #self.insert_username_and_timestamp_into_firebase(testbot_activity_to_insert)
         self.driver.close()

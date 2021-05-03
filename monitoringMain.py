@@ -14,7 +14,7 @@ if __name__ == '__main__':
         instaUsername = passwordFile.readline()
     
     
-    group_chat_to_monitor = "racism"
+    group_chat_to_monitor = "happy birthday"
     database_to_connect = 'groupchatDatabase'
     testBot = TestBot(instaUsername, password, group_chat_to_monitor, database_to_connect)
     
@@ -24,6 +24,11 @@ if __name__ == '__main__':
     while True:
         try:
             message_elements = testBot.driver.find_elements_by_xpath("//div[" + generic_message_contains_string + "]")
+            
+            # Hacky solution to get around some bug where sometimes message_elements is an empty list
+            if message_elements == []:
+                message_elements = ['Filler']
+            
             if last_element != message_elements[-1]:
                 testBot.log_all_gc_messages() 
                 
