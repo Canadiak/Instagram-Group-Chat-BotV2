@@ -63,8 +63,10 @@ dbRefObject.on('value', (snapshot) => {
     }
     
     sortTableByColumn(activityTable.parentElement, lastSortedColumn);
-    data = createData(arrayOfMembers);
     
+    data = createData(arrayOfMembers);
+    console.log("Data: ");
+    console.log(data);
     if (!chartExists){
         arrayOfMembersStored = arrayOfMembers;
         activityGraph = new Chart(myChart, data);
@@ -217,10 +219,6 @@ Chart.defaults.global.defaultFontFamily ='Lato';
 Chart.defaults.global.defaultFontSize = 18;
 Chart.defaults.global.defaultFontColor = '#777';
 
-function compareNumOfMessages(messages, numToCompare){
-    
-    
-}
 
 function createData (rawData){
     
@@ -322,3 +320,9 @@ document.querySelector(".numUserDisplayInput").addEventListener("change", (event
     });
         
 });
+
+
+function compareNumOfMessages(messages, numToCompare){
+    
+    
+}

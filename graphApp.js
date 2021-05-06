@@ -147,6 +147,15 @@ let testbot_online_times = [];
 let chartExists = false;
 let yLabels = ["Testbot Online", "Everyone"];
 let everyone_timestamps = [];
+let hourData = [];
+let data = {};
+for (let index = 0; index < 24; index++){
+    hourData.push({
+        "Message_Count" : 0,
+        "Hour" : (index).toString(),
+    });
+}
+
 dbRefObject.once('value', (snapshot) => {
     
     let activity_data_raw = snapshot.val();
@@ -168,14 +177,36 @@ dbRefObject.once('value', (snapshot) => {
                 everyone_timestamps.push({"timestamp" : activity_data[index]["Timestamp"]});
             }
         }
+        if(index == 1){
+            console.log("dateParser(activity_data[index]['Timestamp']) : ");
+            console.log(dateParser(activity_data[index]["Timestamp"]));
+            console.log("dateParser(activity_data[index]['Timestamp']).getHours(): ");
+            console.log(dateParser(activity_data[index]["Timestamp"]).getHours());
+            console.log('hourData[dateParser(activity_data[index]["Timestamp"]).getHours()-1] : ');
+            console.log(hourData[dateParser(activity_data[index]["Timestamp"]).getHours()]);
+            console.log('hourData : ');
+            console.log(hourData);
+        }
+        hourData[dateParser(activity_data[index]["Timestamp"]).getHours()]["Message_Count"]++;
+            
         
     }
+    console.log(hourData);
     testbot_online_times = sortTimeStampListArray(testbot_online_times, "Timestamp");
     //console.log(testbot_online_times)
     format_testbot_online_data(testbot_online_times);
     
     console.log(testbot_online_data_formatted);
     create_scatterplot(testbot_online_data_formatted, yLabels);
+    
+    
+    // My Chart Code //
+    
+    data = createData(hourData);
+    console.log("Data: ");
+    console.log(data);
+    activityGraph = new Chart(myChart, data);
+    
 }); 
 
 
@@ -342,3 +373,89 @@ function removeAllChildNodes(parent) {
         parent.removeChild(parent.firstChild);
     }
 }
+
+
+
+//      -------------      //
+//      MY CHART CODE      //
+//      -------------      //
+
+
+var myChart = document.getElementById('myChart').getContext('2d');
+
+//Global Options
+Chart.defaults.global.defaultFontFamily ='Lato';
+Chart.defaults.global.defaultFontSize = 18;
+Chart.defaults.global.defaultFontColor = '#777';
+
+
+function createData (rawData){
+    
+    num_of_comments_list = [];
+    names_list = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", ];
+    colour_list = [];
+    console.log("Raw data: ");
+    console.log(rawData);
+    sumOfMessages = 0;
+    rawData.forEach(item => {
+        sumOfMessages += item["Message_Count"];
+    });
+    
+    /* numUsers = document.querySelector(".numUserDisplayInput").value;
+    console.log("numUsers:");
+    console.log(numUsers);
+    rawDataFiltered = rawData.filter((datum , index) => (30-numUsers < index));  */
+    
+    
+    for(let index = 0; index < 24; index++){
+        num_of_comments_list.push(rawData[index]["Message_Count"]);
+        hue = index * (360/24);
+        colour_list.push(`hsla(${hue}, 70%, 70%, 0.8`);
+    }
+    
+    formattedData = {
+    
+        type: 'bar', //bar, horizontalBar, pie, line, doughnut, radar, polarArea
+        
+        data: {
+            labels: names_list,
+            datasets:[{
+                label:"Number of Messages",
+                data: num_of_comments_list,
+                //backgroundColor:'green'
+                backgroundColor: colour_list,
+                borderWidth: 1,
+                borderColor:'#777',
+                hoverBorderWidth: 3,
+                hoverBorderColor: '#FFF',
+            }],
+        },
+        options: {
+            scales: {
+                yAxes: [{
+                    ticks: {
+                        beginAtZero: true
+                    }
+                }]
+            }
+        },
+    }
+    return formattedData;
+    
+}
+
+
+/* document.querySelector(".numUserDisplayInput").addEventListener("change", (event) => {
+    console.log("Check2 for arrayOfMembers");
+    let tempData = createData(arrayOfMembersStored);
+    let tempOptions = activityGraph.options;
+    let tempType = activityGraph.config.type;
+    activityGraph.destroy();
+    activityGraph = new Chart(myChart, {
+        type: tempType,
+        data: tempData.data,
+        options: tempOptions,
+    });
+        
+}); */
+
