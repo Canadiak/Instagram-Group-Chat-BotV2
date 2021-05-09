@@ -1,149 +1,146 @@
 * {box-sizing:border-box;}
 
-body{
-    background:	#eab0dc;
-    font-family: 'Roboto Mono', monospace;
-    font-size: 28px;
-    color: #222222;
-    
-    
-    user-select: none; /* supported by Chrome and Opera */
-   -webkit-user-select: none; /* Safari */
-   -khtml-user-select: none; /* Konqueror HTML */
-   -moz-user-select: none; /* Firefox */
-   -ms-user-select: none; /* Internet Explorer/Edge */
+body {
+  background:	#eab0dc;
+  font-family: 'Roboto Mono', monospace;
+  font-size: 28px;
+  color: #222222;
+  user-select: none; /* supported by Chrome and Opera */
+  
+  /*Get an warning for these but I don't really know what they do anyway */
+  -webkit-user-select: none; /* Safari */
+  -khtml-user-select: none; /* Konqueror HTML */
+  -moz-user-select: none; /* Firefox */
+  -ms-user-select: none; /* Internet Explorer/Edge */
 }
 
-h1{
-    color: #fff;
-    font-size: 64px;
-    letter-spacing: 2px;
-    margin-top: 80px;
-    text-align: center;
+h1 {
+  color: #fff;
+  font-size: 64px;
+  letter-spacing: 2px;
+  margin-top: 80px;
+  text-align: center;
 }
 
-.content{
-    background: #fff;
-    max-width: 900px;
-    margin: 30px auto;
-    padding:  20px 30px;
-    border-radius: 20px 20px 20px 20px;
-    box-shadow: 1px 3px 5px rgba(0,0,0,0.1)
+.content {
+  background: #fff;
+  max-width: 900px;
+  margin: 30px auto;
+  padding:  20px 30px;
+  border-radius: 20px 20px 20px 20px;
+  box-shadow: 1px 3px 5px rgba(0,0,0,0.1)
 }
 
 /* Chart CSS */
 
-.myChartControls{
-    display: flex;
-    justify-content: center;
+.my-chart-controls {
+  display: flex;
+  justify-content: center;
 }
 
-.numUserDisplayInput{
-    width: 30px;
-    height: 30px;
-    margin: 10px;
-    border: 0px;
-    box-shadow:0 0 2px 2px rgba(0,0,0,0.2);
-    border-radius:10px;
-    text-align: center;
+.users-displayed-input {
+  width: 30px;
+  height: 30px;
+  margin: 10px;
+  border: 0;
+  box-shadow:0 0 2px 2px rgba(0,0,0,0.2);
+  border-radius:10px;
+  text-align: center;
 }
 
-.numUserDisplayInput:focus{
-    outline: none;
+.users-displayed-input:focus {
+  outline: none;
 }
 
-input{
-    font-size: 24px;
+input {
+  font-size: 24px;
 }
 
-.chartTypeButton{
-    height: 40px;
-    margin: 10px;
-    padding: 10px;
-    border: 0px;
-    box-shadow:0 0 2px 2px rgba(0,0,0,0.2);
-    border-radius:10px;
-    
-    background-color: hsla(180, 70%, 55%, 0.7);
-    color:#fff;
-    text-decoration: none;
+.chart-type-button {
+  height: 40px;
+  margin: 10px;
+  padding: 10px;
+  border: 0;
+  box-shadow:0 0 2px 2px rgba(0,0,0,0.2);
+  border-radius:10px;
+  
+  background-color: hsla(180, 70%, 55%, 0.7);
+  color:#fff;
+  text-decoration: none;
 }
 
-.chartTypeButton:focus{
-    /*box-shadow:0 0 3px 3px rgba(0,0,0,0.4);*/
-    outline: none;
+.chart-type-button:focus {
+  /*box-shadow:0 0 3px 3px rgba(0,0,0,0.4);*/
+  outline: none;
 }
 
 
 /* Scatterplot Settings*/
 
-.sortAlphaOrComments{
-    height: 40px;
-    margin: 10px;
-    padding: 10px;
-    border: 0px;
-    box-shadow:0 0 2px 2px rgba(0,0,0,0.2);
-    border-radius:10px;
-    
-    background-color: hsla(180, 70%, 55%, 0.7);
-    color:#fff;
-    max-width: 500px;
+.box-sorter {
+  height: 40px;
+  margin: 10px;
+  padding: 10px;
+  border: 0;
+  box-shadow:0 0 2px 2px rgba(0,0,0,0.2);
+  border-radius:10px;
+  
+  background-color: hsla(180, 70%, 55%, 0.7);
+  color:#fff;
+  max-width: 500px;
 } 
 
-.sortAlphaOrComments:focus{
-    outline: none;
+.box-sorter:focus {
+  outline: none;
 }
 
-.horiCenter{
-    display: flex;
-    justify-content: center;
+.hori-center {
+  display: flex;
+  justify-content: center;
 }
 
-.vertiCenter{
-    display: flex;
-    justify-content: space-between;
-    flex-direction: column;
+.verti-center {
+  display: flex;
+  justify-content: space-between;
+  flex-direction: column;
 }
 
-.scatterplot_controls{
-    display: flex;
-    justify-content: center;
+.scatterplot_controls {
+  display: flex;
+  justify-content: center;
 }
 
-.checker{
-    margin: 10px;
+.checker {
+  margin: 10px;
 }
- label{
-    margin: 5px;
+
+ label {
+  margin: 5px;
 }  
 
 .checker:checked + label {
-    font-style: oblique;
+  font-style: oblique;
 }
 
-.checkbox_container{
-    max-width: 1000px;
-    display: flex;
-    justify-content: center;
+.checkbox_container {
+  max-width: 1000px;
+  display: flex;
+  justify-content: center;
 }
 
-
-.tick{ 
-    font-size: 30px sans-serif; 
+.tick line {
+  opacity: 0.5;
+  /*stroke: hsla(0, 70%, 5%, 1);*/
 }
 
-.tick line{
-    opacity: 0.5;
-    /*stroke: hsla(0, 70%, 5%, 1);*/
-}
-
-.point{
-    opacity: 0.25;
+.point {
+  opacity: 0.15;
 }
 /*.domain{
-    stroke: hsla(0, 0%, 15%, 1);
+  stroke: hsla(0, 0%, 15%, 1);
 }*/
 
+/*Get an warning for these but I don't really know what they do anyway */
 /* Chrome, Safari, Edge, Opera */
 input::-webkit-outer-spin-button,
 input::-webkit-inner-spin-button {
@@ -164,19 +161,24 @@ input[type=number] {
 table {
   border-collapse: collapse;
 }
+
 table td, table th {
   border: 1px solid rgb(220,220,220);
 }
+
 table tr:first-child th {
   border: 0;
 }
+
 table tr:last-child td {
   border: 0;
 }
+
 table tr td:first-child,
 table tr th:first-child {
   border: 0;
 }
+
 table tr td:last-child,
 table tr th:last-child {
   border: 0;
@@ -200,7 +202,7 @@ td, th {
 
 th {
   background-color: rgb(235,235,235);
-  padding: /*20px;*/
+  /*padding: 20px;*/
   font-size: 28px;
 }
 
@@ -226,7 +228,7 @@ tr:nth-child(odd) td {
 
 
 th {
-  letter-spacing: 0px;
+  letter-spacing: 0;
 }
 
 td {
@@ -244,34 +246,33 @@ tfoot th {
 
 /* Table Sorting */
 
-.table-sortable th{
-    
-    cursor: pointer;
+.table-sortable th {
+  cursor: pointer;
 }
 
-.table-sortable .th-sort-asc::after{
-    content: "\25b4";
-    
+.table-sortable .th-sort-asc::after {
+  content: "\25b4";
+  
 }
 
-.table-sortable .th-sort-desc::after{
-    content: "\25be";
-    
+.table-sortable .th-sort-desc::after {
+  content: "\25be";
+  
 }
 
 .table-sortable .th-sort-asc::after,
-.table-sortable .th-sort-desc::after{
-    margin-left: 5px;
-    
+.table-sortable .th-sort-desc::after {
+  margin-left: 5px;
+  
 }
 
 .table-sortable .th-sort-asc,
-.table-sortable .th-sort-desc{
-    background: rgba(0, 0, 0, 0.2);
-    
+.table-sortable .th-sort-desc {
+  background: rgba(0, 0, 0, 0.2);
+  
 }
 
-.linkButton {
+.link-button {
   display: block;
   width: 100%;
   border: none;
@@ -283,5 +284,6 @@ tfoot th {
 }
 
 a {
-    text-decoration: none;
+  text-decoration: none;
+  color: #ffffff;
 }
