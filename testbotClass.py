@@ -98,7 +98,7 @@ class TestBot:
         self.navigate_to_insta_inbox()
         self.navigate_to_group_chat()
       
-        # self.set_comments_to_zero()
+        self.set_comments_to_zero()
        
         
         # Inset a quittime time stamp
@@ -108,8 +108,9 @@ class TestBot:
                     # testbot_activity_to_insert[0]) 
                     
         #Insert start time stamp
-        start_time = datetime.now()
-        start_timestamp = start_time.strftime("%d/%m/%Y %H:%M:%S")
+        # start_time = datetime.now()
+        # start_timestamp = start_time.strftime("%d/%m/%Y %H:%M:%S")
+        start_timestamp = current_second_time()
         
         # It's a list because insert_username_and_timestamp_into_firebase() takes a list as an argument.
         testbot_activity_to_insert = [("Testbot", "Start_Time", start_timestamp)] 
@@ -436,7 +437,9 @@ class TestBot:
         messages_excluding_reply_headers_xpath = excluding_reply_headers_ancestor_xpath + message_xpath
         messages = self.driver.find_elements_by_xpath(messages_excluding_reply_headers_xpath);
         now = datetime.now()
-        timestamp = now.strftime("%d/%m/%Y %H:%M:%S")
+        # timestamp = now.microsecond
+        # timestamp = now.strftime("%d/%m/%Y %H:%M:%S")
+        timestamp = current_second_time()
         list_of_messages_and_usernames_and_timestamp = []
                
         for message in messages:    
@@ -521,16 +524,12 @@ class TestBot:
         with self.conn:
             self.c.executemany("UPDATE numberOfComments SET NumOfComments = NumOfComments + :Messages WHERE Username = :Username", 
                 username_and_message_count_tuple)
-        
         try:         
             self.set_RTDB_match_sql_comment_count()
         except Exception as e:
             pass
             
-        try:
-            self.get_changed_gc_name()
-        except Exception as e:
-            pass
+        
         
     def insert_username_and_timestamp_into_firebase(self, username_timestamp_tuple_list):
         """
@@ -539,28 +538,19 @@ class TestBot:
         Args:
             username_timestamp_tuple_list (list[(str, str)]: The list of usernames and timestamps to be inserted.
         """
-         # Get the number of comments already. TODO: 
-        #logger.info('Making JSON')
-        recordsDict = {}
+        comments_ref = db.reference(self.database_name + "/CommentTimestampLog")
         try:
             for index, record in enumerate(username_timestamp_tuple_list):
-                # The comment number is the index plus the number of comments in the SQL subtract the number of comments we're adding in
-                # This way the entire comment database doesn't need to be upload to the firebase Database each time
-                recordsDict["comment_num_" + str(index+self.num_of_comments+1-len(username_timestamp_tuple_list))] = {
-                   'Username' : record[0],
-                   'Timestamp' : record[2],
-                   
-                }
+            # The comment number is the index plus the number of comments in the SQL subtract the number of comments we're adding in
+            # This way the entire comment database doesn't need to be upload to the firebase Database each time
+                comments_ref.push({
+                    'Username' : record[0],
+                    'Timestamp' : record[2],
+                })
         except Exception as e:
             logger.info('Something went wrong with making JSON for comments')
             logger.info(e)
         
-        comments_ref = db.reference(self.database_name + "/CommentTimestampLog")
-        #comments_ref.push(recordsDict)
-        #logger.info(recordsDict)
-        # May want to use Push() instead, idk
-        comments_ref.update(recordsDict)
-
     def set_comments_to_zero(self):
         """Sets the comments in the sqlite and the firebase databases to empty."""
         
@@ -621,6 +611,12 @@ class TestBot:
     
     def refresh_insta_chat(self):
         """Refreshes Instagram and navigates back to the group chat."""
+        try:
+            logger.info("Name check")
+            self.get_chat_name()
+        except Exception as e:
+            logger.error(e)
+        
         logger.info(" ")
         logger.info(" ")
         logger.info("Refreshing")
@@ -636,9 +632,11 @@ class TestBot:
         excluding_reply_headers_ancestor_xpath = "//div[contains(@class, 'ZyFrc')]"
         
         messages_excluding_reply_headers_xpath = excluding_reply_headers_ancestor_xpath + message_xpath
-        messages = self.driver.find_elements_by_xpath(messages_excluding_reply_headers_xpath);
-        now = datetime.now()
-        timestamp = now.strftime("%d/%m/%Y %H:%M:%S")
+        messages = self.driver.find_elements_by_xpath(messages_excluding_reply_headers_xpath)
+        # now = datetime.now()
+        # timestamp = now.microsecond
+        #timestamp = now.strftime("%d/%m/%Y %H:%M:%S")
+        timestamp = current_second_time()
         list_of_messages_and_usernames_and_timestamp = []
                
                
@@ -662,7 +660,27 @@ class TestBot:
         self.last_message_and_username_tuple = (message_list[-1][0], message_list[-1][1])
         # return the last message on the refresh page as the point to start counting from
         self.driver.switch_to.window(self.driver.current_window_handle)
+     
+    def get_chat_name(self):
+        name_class_list = ['_7UhW9', 'vy6Bb', 'qyrsm KV-D4', 'fDxYl']
+        name_contains_string = self.make_xpath_contains_string(name_class_list)
+        parent_class_list = ['Igw0E', 'IwRSH', 'eGOV_', 'ybXk5', '_4EzTm']
+        parent_contains_string = self.make_xpath_contains_string(parent_class_list)
+        name_xpath = "//div[" + parent_contains_string + "]//div[" + name_contains_string + "]"
         
+        logger.info(name_xpath)
+        try:
+            name_element = self.driver.find_element_by_xpath(name_xpath)
+            chat_name = name_element.text
+            if 8 > len(chat_name):
+                chat_name = chat_name[0:8]
+                
+            logger.info("New name: ")
+            logger.info(chat_name)
+            self.group_chat_to_monitor = chat_name
+        except Exception as e:
+            logger.error(e)     
+              
     def get_list_of_insta_usernames(self):
         """
         Returns the list of insta usernames as a list of tuples of one element
@@ -705,16 +723,18 @@ class TestBot:
             try:
                 self.insert_username_and_timestamp_into_firebase(message_list)
             except Exception as e:
-                logger.info("Recursive Database Exception, num_tries: " + num_of_tries)
+                logger.info("Recursive Database Exception, num_tries: " + str(num_of_tries))
                 logger.error(e)
-                self.recursive_database_insert(num_of_tries+1)
+                self.recursive_database_insert(num_of_tries+1, message_list)
         else:
             self.quit_process()
         
     def quit_process(self):
         logger.info("Quitting!")
-        quit_time = datetime.now()
-        quit_timestamp = quit_time.strftime("%d/%m/%Y %H:%M:%S")
+        #quit_time = datetime.now()
+        #quit_timestamp = quit_time.microsecond
+        quit_timestamp = current_second_time()
+        # quit_timestamp = quit_time.strftime("%d/%m/%Y %H:%M:%S")
         # It's a list because insert_username_and_timestamp_into_firebase() takes a list as an argument.
         testbot_activity_to_insert = [("Testbot", "Quit_Time", quit_timestamp)] 
         with self.conn:
@@ -726,3 +746,6 @@ class TestBot:
         self.driver.close()
         quit()
                
+               
+def current_second_time():
+    return round(time.time())
